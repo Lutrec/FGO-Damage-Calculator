@@ -1,0 +1,10 @@
+{
+  "sbg": "ce2400 n80",
+  "sversus": "ce1000 p100",
+  "svictor": "ce2400 bm15 cd25",
+  "sending": "ce2400 am15 cd25",
+  "cs": "ap20 bp20 qp20 bcd20 acd40 qcd60 cd10 n10 em50 sg50",
+  "super": "lv100 f2000",
+  "hyper": "lv120 f2000",
+  "grand": "ce1000"
+}

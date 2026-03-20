@@ -1,0 +1,44 @@
+{
+  "man": {
+    "man": 1000,
+    "sky": 1100,
+    "earth": 900,
+    "star": 1000,
+    "beast": 1000
+  },
+  "sky": {
+    "man": 900,
+    "sky": 1000,
+    "earth": 1100,
+    "star": 1000,
+    "beast": 1000
+  },
+  "earth": {
+    "man": 1100,
+    "sky": 900,
+    "earth": 1000,
+    "star": 1000,
+    "beast": 1000
+  },
+  "star": {
+    "man": 1000,
+    "sky": 1000,
+    "earth": 1000,
+    "star": 1000,
+    "beast": 1100
+  },
+  "beast": {
+    "man": 1000,
+    "sky": 1000,
+    "earth": 1000,
+    "star": 1100,
+    "beast": 1000
+  },
+  "none": {
+    "man": 1000,
+    "sky": 1000,
+    "earth": 1000,
+    "star": 1000,
+    "beast": 1000
+  }
+}

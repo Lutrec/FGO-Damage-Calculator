@@ -1,0 +1,309 @@
+{
+  "b": [
+    "buster"
+  ],
+  "q": [
+    "quick"
+  ],
+  "e": [
+    "extra"
+  ],
+  "rng": [
+    "random",
+    "rand"
+  ],
+  "lv": [
+    "level",
+    "lvl",
+    "l"
+  ],
+  "np": [
+    "nplevel",
+    "nplv",
+    "npl"
+  ],
+  "oc": [
+    "overcharge",
+    "over"
+  ],
+  "f": [
+    "fou"
+  ],
+  "ce": [
+    "c"
+  ],
+  "ta": [
+    "totalattack",
+    "totalatk"
+  ],
+  "bf": [
+    "busterfirst"
+  ],
+  "af": [
+    "artsfirst"
+  ],
+  "qf": [
+    "quickfirst"
+  ],
+  "nobf": [
+    "nobusterfirst",
+    "no-bf"
+  ],
+  "bc": [
+    "busterchain"
+  ],
+  "mighty": [
+    "mightychain",
+    "mc"
+  ],
+  "fp": [
+    "foupaws",
+    "foupaw",
+    "footprint",
+    "footprints",
+    "prints",
+    "print",
+    "paws",
+    "paw"
+  ],
+  "ecm": [
+    "extracardmodifier"
+  ],
+  "npo": [
+    "npoverride",
+    "npvalue",
+    "npv"
+  ],
+  "hp": [
+    "enemyhp",
+    "ehp"
+  ],
+  "beast1": [
+    "b1"
+  ],
+  "beast1lost": [
+    "b1l"
+  ],
+  "beast2": [
+    "b2"
+  ],
+  "beast3r": [
+    "b3r"
+  ],
+  "beast3l": [
+    "b3l"
+  ],
+  "beast4": [
+    "b4"
+  ],
+  "beast6": [
+    "b6"
+  ],
+  "beastdraco": [
+    "bdraco"
+  ],
+  "beasteresh": [
+    "beresh"
+  ],
+  "beastolga": [
+    "bolga"
+  ],
+  "berserker": [
+    "zerker",
+    "zerk"
+  ],
+  "foreigner": [
+    "forina"
+  ],
+  "alterego": [
+    "ego"
+  ],
+  "mooncancer": [
+    "moon",
+    "cancer"
+  ],
+  "cao": [
+    "classadvantageoverride"
+  ],
+  "man": [
+    "human"
+  ],
+  "esm": [
+    "enemyservermod",
+    "sm"
+  ],
+  "esr": [
+    "enemyserverrate",
+    "serverrate",
+    "srr",
+    "sr"
+  ],
+  "m": [
+    "cardmod",
+    "cm"
+  ],
+  "bm": [
+    "bustercardmod",
+    "bcardmod",
+    "bcm"
+  ],
+  "am": [
+    "artscardmod",
+    "acardmod",
+    "acm"
+  ],
+  "qm": [
+    "quickcardmod",
+    "qcardmod",
+    "qcm"
+  ],
+  "em": [
+    "extracardmod",
+    "ecardmod"
+  ],
+  "a": [
+    "atkmod",
+    "attack",
+    "atkm",
+    "atk"
+  ],
+  "d": [
+    "defmod",
+    "defense",
+    "defence",
+    "def"
+  ],
+  "p": [
+    "powermod",
+    "power",
+    "pmod"
+  ],
+  "fd": [
+    "flatdamage",
+    "fdmg",
+    "dmg",
+    "ad"
+  ],
+  "sdm": [
+    "specialdefensemod",
+    "specialdefencemod"
+  ],
+  "sam": [
+    "damagespecialmod",
+    "dsmod",
+    "dsm",
+    "spe"
+  ],
+  "n": [
+    "npmod",
+    "npm"
+  ],
+  "npp": [
+    "nppower",
+    "npp",
+    "ns"
+  ],
+  "ff": [
+    "fifthforce"
+  ],
+  "se": [
+    "supereffectivemod",
+    "semod",
+    "sem",
+    "s"
+  ],
+  "crit": [
+    "critical"
+  ],
+  "cd": [
+    "critdamage"
+  ],
+  "bcd": [
+    "bustercritical",
+    "bustercrit",
+    "bustercritdamage"
+  ],
+  "acd": [
+    "artscritical",
+    "artscrit",
+    "artscritdamage"
+  ],
+  "qcd": [
+    "quickcritical",
+    "quickcrit",
+    "quickcritdamage"
+  ],
+  "ng": [
+    "npgain",
+    "npgen"
+  ],
+  "bng": [
+    "busternpgain",
+    "busternpgen"
+  ],
+  "ang": [
+    "artsnpgain",
+    "artsnpgen"
+  ],
+  "qng": [
+    "quicknpgain",
+    "quicknpgen"
+  ],
+  "sg": [
+    "stargain",
+    "stargen"
+  ],
+  "bsg": [
+    "busterstargain",
+    "busterstargen"
+  ],
+  "asg": [
+    "artsstargain",
+    "artsstargen"
+  ],
+  "qsg": [
+    "quickstargain",
+    "quickstargen"
+  ],
+  "cp": [
+    "cpower"
+  ],
+  "bp": [
+    "bpower",
+    "bcp"
+  ],
+  "ap": [
+    "apower",
+    "acp"
+  ],
+  "qp": [
+    "qpower",
+    "qcp"
+  ],
+  "ep": [
+    "epower",
+    "ecp"
+  ],
+  "fr": [
+    "flatrefund",
+    "flatgain",
+    "fg"
+  ],
+  "fs": [
+    "flatstargain",
+    "flatstars",
+    "fst"
+  ],
+  "reducedhp": [
+    "reduced",
+    "reduce"
+  ],
+  "ok": [
+    "overkill"
+  ],
+  "cs": [
+    "classscore",
+    "cscore",
+    "score"
+  ]
+}

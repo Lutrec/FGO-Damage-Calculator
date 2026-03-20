@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FGO Damage Calculator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <div class="chat-header">
+            <div class="header-content">
+                <div class="channel-title">
+                    <span class="hash-icon">#</span> fgo-calculator
+                </div>
+                <div class="header-actions">
+                    <svg id="clearBtn" class="discord-action-icon" title="Clear History" aria-hidden="true" width="24"
+                        height="24" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 12px;">
+                        <path
+                            d="M15 3.999V2H9V3.999H3V5.999H21V3.999H15ZM5 6.99902V18.999C5 20.10002 5.895 20.99902 7 20.99902H17C18.105 20.99902 19 20.10002 19 18.99902V6.99902H5ZM11 17H9V11H11V17ZM15 17H13V11H15V17Z">
+                        </path>
+                    </svg>
+
+                    <svg id="helpBtn" class="discord-action-icon" title="Command List" aria-hidden="true" width="24"
+                        height="24" viewBox="0 0 24 24" fill="currentColor">
+                        <path fill-rule="evenodd" clip-rule="evenodd"
+                            d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12.06 17C11.53 17 11.11 16.58 11.11 16.05V15.93C11.11 15.4 11.53 14.98 12.06 14.98C12.59 14.98 13.01 15.4 13.01 15.93V16.05C13.01 16.58 12.59 17 12.06 17ZM14.47 10.3C14.05 10.66 13.63 11.02 13.38 11.39C13.13 11.75 13 12.18 13 12.68C13 12.8 12.92 12.89 12.8 12.89H11.23C11.11 12.89 11.02 12.8 11.02 12.68V12.43C11.02 11.71 11.19 11.08 11.54 10.53C11.89 9.98 12.35 9.47 12.94 9C13.3 8.68 13.56 8.39 13.73 8.12C13.9 7.85 13.99 7.56 13.99 7.24C13.99 6.8 13.84 6.44 13.53 6.16C13.22 5.88 12.79 5.74 12.24 5.74C11.66 5.74 11.21 5.92 10.89 6.27C10.57 6.62 10.37 7.07 10.27 7.62C10.25 7.72 10.16 7.79 10.05 7.79H8.44C8.32 7.79 8.23 7.69 8.24 7.57C8.36 6.55 8.76 5.74 9.42 5.15C10.08 4.56 11.03 4.26 12.27 4.26C13.48 4.26 14.42 4.54 15.09 5.11C15.76 5.68 16.1 6.38 16.1 7.21C16.1 7.8 15.94 8.35 15.63 8.87C15.32 9.39 14.93 9.87 14.47 10.3Z">
+                        </path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div id="chatContainer" class="chat-container"></div>
+
+        <div class="input-area">
+            <div class="input-wrapper">
+                <textarea id="calcInput" rows="1" placeholder="Loading data..." disabled></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div id="helpModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Command Reference</h2>
+                <button id="closeModalBtn" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Type commands separated by spaces.<br><em>Example: <code>nero a44 am30 150000 lancer</code></em></p>
+                <ul>
+                    <li><strong>Servant:</strong> Name (<code>nero</code>) or ID (<code>id1</code>)</li>
+                    <li><strong>Cards:</strong> <code>a1</code>, <code>b2crit</code>, <code>q3</code>, <code>a44</code>
+                        (NP), <code>ex</code></li>
+                    <li><strong>Enemy:</strong> HP (<code>100000</code>) and Class (<code>lancer</code>,
+                        <code>beast1</code>)</li>
+                    <li><strong>Stats:</strong> <code>np5</code>, <code>fou2000</code>, <code>ce1000</code>,
+                        <code>paw500</code></li>
+                    <li><strong>Core Buffs:</strong> <code>atk30</code>, <code>def-20</code>, <code>arts50</code>,
+                        <code>np30</code></li>
+                    <li><strong>Other Buffs:</strong> <code>power20</code>, <code>crit50</code>, <code>flat500</code>,
+                        <code>se150</code> (Super Effective)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="main.js"></script>
+</body>
+
+</html>

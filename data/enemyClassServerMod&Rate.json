@@ -1,0 +1,62 @@
+{
+  "saber": {
+    "enemyServerMod": 1,
+    "enemyServerRate": 1
+  },
+  "archer": {
+    "enemyServerMod": 1,
+    "enemyServerRate": 1.05
+  },
+  "lancer": {
+    "enemyServerMod": 1,
+    "enemyServerRate": 0.95
+  },
+  "rider": {
+    "enemyServerMod": 1.1,
+    "enemyServerRate": 1.1
+  },
+  "caster": {
+    "enemyServerMod": 1.2,
+    "enemyServerRate": 1
+  },
+  "assassin": {
+    "enemyServerMod": 0.9,
+    "enemyServerRate": 0.9
+  },
+  "berserker": {
+    "enemyServerMod": 0.8,
+    "enemyServerRate": 1
+  },
+  "ruler": {
+    "enemyServerMod": 1,
+    "enemyServerRate": 1
+  },
+  "avenger": {
+    "enemyServerMod": 1,
+    "enemyServerRate": 0.9
+  },
+  "moonCancer": {
+    "enemyServerMod": 1.2,
+    "enemyServerRate": 1
+  },
+  "shielder": {
+    "enemyServerMod": 1,
+    "enemyServerRate": 1
+  },
+  "alterEgo": {
+    "enemyServerMod": 1,
+    "enemyServerRate": 1.05
+  },
+  "foreigner": {
+    "enemyServerMod": 1,
+    "enemyServerRate": 1.2
+  },
+  "pretender": {
+    "enemyServerMod": 1,
+    "enemyServerRate": 0.9
+  },
+  "beast": {
+    "enemyServerMod": 1,
+    "enemyServerRate": 1
+  }
+}
