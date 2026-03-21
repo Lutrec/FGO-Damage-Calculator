@@ -7,7 +7,7 @@ Web porting of my discord bot's damage calculator designed to calculate complex 
 The application is built using Vanilla JavaScript and visually disguises its interface as a Discord chat channel. Users can input command strings, and the "bot" will reply with detailed calculation embeds containing damage ranges, NP refund amounts, star generation, and overkill thresholds.
 
 ## Live Demo
-*(Once your GitHub Pages site is live, put the link here! e.g., https://[your-username].github.io/[repo-name]/)*
+https://lutrec.github.io/FGO-Damage-Calculator/
 
 ## How to Use
 
