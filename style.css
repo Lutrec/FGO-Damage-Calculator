@@ -14,7 +14,8 @@ html {
 .app-container {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%; /* Fallback for older browsers */
+  height: 100dvh; /* Dynamic height that respects mobile navigation bars */
 }
 
 /* --- HEADER --- */
@@ -245,7 +246,7 @@ html {
 
 /* --- INPUT AREA --- */
 .input-area {
-  padding: 0 16px 24px 16px;
+  padding: 0 16px calc(24px + env(safe-area-inset-bottom)) 16px;
   background-color: #313338;
 }
 
@@ -345,24 +346,24 @@ html {
 
 /* --- MOBILE ADJUSTMENTS --- */
 @media (max-width: 600px) {
-    /* Allow buttons to wrap to the next line */
-    .btn-row {
-        flex-wrap: wrap;
-    }
-    
-    /* Make the embed take up the full width minus a little padding */
-    .embed {
-        max-width: 100%;
-    }
-    
-    /* Reduce the avatar padding slightly to give text more room */
-    .message {
-        padding-left: 56px;
-    }
-    
-    .message .avatar {
-        width: 32px;
-        height: 32px;
-        left: 12px;
-    }
+  /* Allow buttons to wrap to the next line */
+  .btn-row {
+    flex-wrap: wrap;
+  }
+
+  /* Make the embed take up the full width minus a little padding */
+  .embed {
+    max-width: 100%;
+  }
+
+  /* Reduce the avatar padding slightly to give text more room */
+  .message {
+    padding-left: 56px;
+  }
+
+  .message .avatar {
+    width: 32px;
+    height: 32px;
+    left: 12px;
+  }
 }
