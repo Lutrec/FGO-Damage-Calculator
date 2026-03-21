@@ -22,7 +22,7 @@ You can mix and match the following arguments in any order:
 * **Servant:** Enter the servant's name (e.g., `nero`) or ID (e.g., `5`).
 * **Card Chains:** Define the attack sequence using `np` (default chain if not specified), `a`, `b` and `q` (e.g., `npbb`).
 * **Enemy Stats:** * HP: `hp100000` (Calculates overkill and success probability).
-  * Class: `saber`, `archer`, `lancer`, `ruler`, `beast1`, etc.
+  * Class: `saber`, `archer`, `lancer`, `ruler`, `beast3l`, etc.
   * Attribute: `man`, `sky`, `earth`, `star`, `beast`.
 * **Servant Stats:**
   * `np1` to `np5` (Sets NP Level, np5 by default)
@@ -32,13 +32,13 @@ You can mix and match the following arguments in any order:
   * `paw500` or `fp500` (Fou Paw ATK for facecards)
 * **Core Buffs:**
   * `atk30` / `def-20` (ATK Up / Enemy DEF Down)
-  * `arts50` / `buster50` / `quick50` (Card effectiveness)
-  * `np30` (NP Damage Up)
-  * `power20` (Special Damage / Power Mod)
-  * `crit50` (Critical Damage Up)
+  * `am50` / `bm50` / `qm50` (Card effectiveness)
+  * `n30` (NP Damage Up)
+  * `p20` (Special Damage / Power Mod)
+  * `cd50` (Critical Damage Up)
 * **Advanced Modifiers:**
   * `se150` (Super Effective Mod for specific NPs)
-  * `flat500` (Flat damage addition)
+  * `fd500` (Flat damage addition)
   * `ng30` (NP Generation Up)
   * `sg30` (Star Generation Up)
 
