@@ -10,10 +10,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   const USER_AVATAR =
     "https://static.atlasacademy.io/JP/MasterFace/equip00441.png";
 
+  // --- HISTORY MANAGEMENT ---
   let history = JSON.parse(localStorage.getItem("fgoCalcHistory")) || [];
+
   function saveState() {
-    if (history.length > 100) {
-      history = history.slice(-100);
+    // Keep only the last 50 items to prevent DOM bloat and storage crashes
+    if (history.length > 50) {
+      history = history.slice(-50);
     }
     localStorage.setItem("fgoCalcHistory", JSON.stringify(history));
   }
@@ -23,7 +26,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const helpModal = document.getElementById("helpModal");
   const closeModalBtn = document.getElementById("closeModalBtn");
 
-  // NEW: Clear Button Logic
+  // Clear Button Logic
   const clearBtn = document.getElementById("clearBtn");
 
   clearBtn.addEventListener("click", () => {
@@ -38,7 +41,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         "Chat history cleared. Ready for new calculations!",
         false,
         null,
-        false,
+        false
       );
     }
   });
@@ -63,6 +66,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     calcInput.disabled = false;
     calcInput.placeholder = "Message #fgo-calculator (e.g., nero a44 am30)";
 
+    // Render previous history
     history.forEach((item) => {
       if (item.type === "bot")
         appendBotMessage(item.text, item.isError, item.time, false);
@@ -72,16 +76,16 @@ document.addEventListener("DOMContentLoaded", async () => {
         appendCalculationEmbed(item.waves, item.time, false);
     });
 
+    // Welcome message (prevented from saving to history)
     appendBotMessage(
       "Data loaded successfully! Type your command below and press Enter.",
-      false, // isError
-      null, // time
-      false, // save
+      false,
+      null,
+      false
     );
-
   } catch (err) {
     console.error("Startup Crash:", err);
-    appendBotMessage(`Failed to load JSON data: ${err.message}`, true);
+    appendBotMessage(`Failed to load JSON data: ${err.message}`, true, null, false);
   }
 
   // --- INPUT HANDLING ---
@@ -132,6 +136,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const msgDiv = document.createElement("div");
     msgDiv.className = "message";
     if (save) msgDiv.classList.add("animate-message");
+
     msgDiv.innerHTML = `
             <img class="avatar" src="${BOT_AVATAR}" alt="Bot">
             <div class="msg-content">
@@ -156,6 +161,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const msgDiv = document.createElement("div");
     msgDiv.className = "message";
     if (save) msgDiv.classList.add("animate-message");
+
     msgDiv.innerHTML = `
             <img class="avatar" src="${USER_AVATAR}" alt="User">
             <div class="msg-content">
@@ -197,7 +203,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // --- EMBED GENERATOR ---
   function appendCalculationEmbed(waves, time = null, save = true) {
-    const msgTime = time || getTimeString(); // 1. Set the time
+    const msgTime = time || getTimeString();
     let currentWaveIndex = 0;
     const isMultiWave = waves.length > 1;
 
@@ -275,7 +281,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       const n = snapshot.npGainMods;
       const s = snapshot.starGenMods;
 
-      // Added break-inside: avoid so items don't split across columns
       const buffLine = (id, label, value) =>
         `<div style="display: flex; align-items: center; margin-bottom: 4px; break-inside: avoid;">
             ${getBuffIcon(id)} <span><strong>${label}:</strong> ${value}</span>
@@ -331,6 +336,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const msgDiv = document.createElement("div");
     msgDiv.className = "message";
     if (save) msgDiv.classList.add("animate-message");
+
     msgDiv.innerHTML = `
             <img class="avatar" src="${BOT_AVATAR}" alt="Bot">
             <div class="msg-content">
@@ -587,13 +593,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
 
     btnToggle.addEventListener("click", () => {
-      // 1. Measure exactly where the button is on your screen before the change
       const prevButtonY = btnToggle.getBoundingClientRect().top;
 
       showingDetails = !showingDetails;
       btnToggle.innerText = showingDetails ? "Hide Details" : "Show Details";
 
-      // 2. Toggle the displays
       if (detailContainer) {
         detailContainer.style.display = showingDetails ? "block" : "none";
       }
@@ -603,32 +607,45 @@ document.addEventListener("DOMContentLoaded", async () => {
         el.style.display = showingDetails ? "block" : "none";
       });
 
-      // 3. Measure where the button ended up after the browser resized everything
       const newButtonY = btnToggle.getBoundingClientRect().top;
-
-      // 4. Adjust the scroll container by the exact difference to pin the button in place
-      chatContainer.scrollTop += newButtonY - prevButtonY;
+      const chatContainer = document.getElementById("chatContainer");
+      chatContainer.scrollTop += (newButtonY - prevButtonY);
     });
+
+    // --- Scroll Anchoring Helper for Wave Navigation ---
+    const changeWave = (newIndex, clickedBtn) => {
+      const prevY = clickedBtn.getBoundingClientRect().top;
+
+      currentWaveIndex = newIndex;
+      renderWave(currentWaveIndex);
+
+      const newY = clickedBtn.getBoundingClientRect().top;
+      const chatContainer = document.getElementById("chatContainer");
+      chatContainer.scrollTop += (newY - prevY);
+    };
 
     const maxPages = isMultiWave ? waves.length : 0;
+    
     btnFirst.addEventListener("click", () => {
-      currentWaveIndex = 0;
-      renderWave(currentWaveIndex);
+      changeWave(0, btnFirst);
     });
+    
     btnPrev.addEventListener("click", () => {
-      if (currentWaveIndex > 0) renderWave(--currentWaveIndex);
+      if (currentWaveIndex > 0) changeWave(currentWaveIndex - 1, btnPrev);
     });
+    
     btnNext.addEventListener("click", () => {
-      if (currentWaveIndex < maxPages) renderWave(++currentWaveIndex);
+      if (currentWaveIndex < maxPages) changeWave(currentWaveIndex + 1, btnNext);
     });
+    
     btnLast.addEventListener("click", () => {
-      currentWaveIndex = maxPages;
-      renderWave(currentWaveIndex);
+      changeWave(maxPages, btnLast);
     });
 
     renderWave(currentWaveIndex);
     chatContainer.appendChild(msgDiv);
     scrollToBottom();
+    
     if (save) {
       history.push({type: "embed", waves, time: msgTime});
       saveState();
