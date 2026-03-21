@@ -74,7 +74,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     appendBotMessage(
       "Data loaded successfully! Type your command below and press Enter.",
+      false, // isError
+      null, // time
+      false, // save
     );
+
   } catch (err) {
     console.error("Startup Crash:", err);
     appendBotMessage(`Failed to load JSON data: ${err.message}`, true);
@@ -603,7 +607,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const newButtonY = btnToggle.getBoundingClientRect().top;
 
       // 4. Adjust the scroll container by the exact difference to pin the button in place
-      chatContainer.scrollTop += (newButtonY - prevButtonY);
+      chatContainer.scrollTop += newButtonY - prevButtonY;
     });
 
     const maxPages = isMultiWave ? waves.length : 0;
