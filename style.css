@@ -344,6 +344,31 @@ html {
   color: #f2f3f5;
 }
 
+/* --- SEND BUTTON --- */
+.send-btn {
+    background: none;
+    border: none;
+    color: #b5bac1;
+    cursor: pointer;
+    padding: 6px;
+    margin-left: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.send-btn:hover:not(:disabled) {
+    color: #dbdee1;
+    background-color: #4e5058;
+}
+
+.send-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* --- MOBILE ADJUSTMENTS --- */
 @media (max-width: 600px) {
   /* Allow buttons to wrap to the next line */

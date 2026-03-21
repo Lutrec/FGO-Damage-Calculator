@@ -61,9 +61,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   // --- INITIALIZATION ---
+  const sendBtn = document.getElementById("sendBtn");
   try {
     await GameDataLoader.initialize();
     calcInput.disabled = false;
+    sendBtn.disabled = false;
     calcInput.placeholder = "Message #fgo-calculator (e.g., nero a44 am30)";
 
     // Render previous history
@@ -100,25 +102,35 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
+  function handleSend() {
+    const input = calcInput.value.trim();
+    if (!input) return;
+
+    appendUserMessage(input);
+    calcInput.value = "";
+    calcInput.style.height = "auto";
+
+    try {
+      const waves = WaveOrchestrator.simulateBattle(input);
+      if (waves.length > 0) {
+        appendCalculationEmbed(waves);
+      }
+    } catch (err) {
+      appendBotMessage(`**Error:** ${err.message}`, true);
+    }
+  }
+
+  // Trigger on Enter key
   calcInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      const input = calcInput.value.trim();
-      if (!input) return;
-
-      appendUserMessage(input);
-      calcInput.value = "";
-      calcInput.style.height = "auto";
-
-      try {
-        const waves = WaveOrchestrator.simulateBattle(input);
-        if (waves.length > 0) {
-          appendCalculationEmbed(waves);
-        }
-      } catch (err) {
-        appendBotMessage(`**Error:** ${err.message}`, true);
-      }
+      handleSend();
     }
+  });
+
+  // Trigger on Send Button click
+  sendBtn.addEventListener("click", () => {
+    handleSend();
   });
 
   // --- UI HELPERS ---
