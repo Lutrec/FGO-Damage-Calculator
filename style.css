@@ -1,4 +1,12 @@
-/* --- BASE & DISCORD THEME --- */
+/**
+ * @file style.css
+ * Stylesheet for the FGO Damage Calculator.
+ * Utilizes a Discord-inspired dark theme color palette and flexbox layout architecture.
+ */
+
+/* ==========================================================================
+   Base Layout & Typography
+   ========================================================================== */
 body,
 html {
   margin: 0;
@@ -18,17 +26,19 @@ html {
   height: 100dvh; /* Dynamic height that respects mobile navigation bars */
 }
 
-/* --- HEADER --- */
+/* ==========================================================================
+   Application Header
+   ========================================================================== */
 .chat-header {
   max-width: 800px;
   width: 100%;
   margin: 0 auto;
-
   border-bottom: 1px solid #1e1f22;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   background-color: #313338;
   z-index: 10;
 }
+
 .header-content {
   display: flex;
   justify-content: space-between;
@@ -63,7 +73,9 @@ html {
   color: #dbdee1;
 }
 
-/* --- CHAT AREA --- */
+/* ==========================================================================
+   Chat Container & Message Rendering
+   ========================================================================== */
 .chat-container {
   flex: 1;
   overflow-y: auto;
@@ -79,19 +91,7 @@ html {
   width: 100%;
   box-sizing: border-box;
 }
-.animate-message {
-  animation: messageSlideIn 0.3s ease-out forwards;
-}
-@keyframes messageSlideIn {
-  0% {
-    opacity: 0;
-    transform: translateY(15px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+
 .message:hover {
   background-color: #2e3035;
 }
@@ -105,6 +105,21 @@ html {
   border-radius: 50%;
   background-color: transparent;
   cursor: pointer;
+}
+
+.animate-message {
+  animation: messageSlideIn 0.3s ease-out forwards;
+}
+
+@keyframes messageSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .msg-content {
@@ -147,7 +162,9 @@ html {
   color: #dbdee1;
 }
 
-/* --- EMBEDS --- */
+/* ==========================================================================
+   Calculation Embeds
+   ========================================================================== */
 .embed {
   background-color: #2b2d31;
   border-left: 4px solid #5865f2;
@@ -193,7 +210,9 @@ html {
   color: #dbdee1;
 }
 
-/* --- BUTTONS --- */
+/* ==========================================================================
+   Interactive Buttons
+   ========================================================================== */
 .btn-row {
   display: flex;
   gap: 8px;
@@ -244,7 +263,9 @@ html {
   background-color: #3f4147;
 }
 
-/* --- INPUT AREA --- */
+/* ==========================================================================
+   User Input Area
+   ========================================================================== */
 .input-area {
   padding: 0 16px calc(24px + env(safe-area-inset-bottom)) 16px;
   background-color: #313338;
@@ -278,7 +299,33 @@ html {
   color: #949ba4;
 }
 
-/* --- HELP MODAL --- */
+.send-btn {
+    background: none;
+    border: none;
+    color: #b5bac1;
+    cursor: pointer;
+    padding: 6px;
+    margin-left: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.send-btn:hover:not(:disabled) {
+    color: #dbdee1;
+    background-color: #4e5058;
+}
+
+.send-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ==========================================================================
+   Help Modal
+   ========================================================================== */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -344,32 +391,9 @@ html {
   color: #f2f3f5;
 }
 
-/* --- SEND BUTTON --- */
-.send-btn {
-    background: none;
-    border: none;
-    color: #b5bac1;
-    cursor: pointer;
-    padding: 6px;
-    margin-left: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    transition: color 0.2s ease, background-color 0.2s ease;
-}
-
-.send-btn:hover:not(:disabled) {
-    color: #dbdee1;
-    background-color: #4e5058;
-}
-
-.send-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-/* --- MOBILE ADJUSTMENTS --- */
+/* ==========================================================================
+   Mobile Adjustments
+   ========================================================================== */
 @media (max-width: 600px) {
   /* Allow buttons to wrap to the next line */
   .btn-row {

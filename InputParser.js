@@ -1,8 +1,21 @@
-import {GameDataLoader} from "./GameDataLoader.js";
+import { GameDataLoader } from "./GameDataLoader.js";
 
+/**
+ * @file InputParser.js
+ * Translates raw user input strings into structured configuration objects.
+ * Handles tokenization, macro expansion, and separating global buffs from positional card overrides.
+ */
+
+// --- Parsing Constants ---
+
+/** @constant {string} BASE_MODS - Regex string of valid numerical buff keys. */
 const BASE_MODS =
   "hp|lv|str|oc|m|cp|a|d|am|bm|qm|em|n|p|cd|sdm|sam|se|fd|ce|f|fp|npp|ap|bp|qp|ep|acd|bcd|qcd|np|npo|ng|ang|bng|qng|esm|esr|sg|asg|bsg|qsg|ta|cao|aao|cmo|fr|fs|ecm|rng|reducedhp|ff";
+
+/** @constant {Set<string>} ATTRIBUTES - Valid FGO Earth/Sky/Man/Star/Beast attributes. */
 const ATTRIBUTES = new Set(["man", "sky", "earth", "star", "beast"]);
+
+/** @constant {Set<string>} CLASSES - Valid FGO Enemy Classes. */
 const CLASSES = new Set([
   "saber",
   "archer",
@@ -32,6 +45,8 @@ const CLASSES = new Set([
   "beasteresh",
   "beastolga",
 ]);
+
+/** @constant {Set<string>} FLAGS - Valid boolean flags (e.g., crits, positional markers). */
 const FLAGS = new Set([
   "crit",
   "np",
@@ -58,6 +73,11 @@ const FLAGS = new Set([
 ]);
 
 export const InputParser = {
+  /**
+   * Dynamically builds a Regular Expression to match buff tokens.
+   * Incorporates base mods, attributes, classes, flags, and custom aliases defined in the GameDataLoader.
+   * @returns {RegExp} The compiled regex pattern for capturing buff types and their numeric values.
+   */
   getPattern() {
     const aliasKeys = Object.keys(GameDataLoader.ALIASES);
     const aliasString = aliasKeys.length === 0 ? "" : "|" + aliasKeys.join("|");
@@ -68,6 +88,12 @@ export const InputParser = {
     );
   },
 
+  /**
+   * Scans the input string to extract the specific sequence of cards (e.g., "npbq").
+   * Defaults to "np" if no valid card chain is detected.
+   * @param {string} input - The raw user input string.
+   * @returns {string} The matched card chain string.
+   */
   extractCardChain(input) {
     const cleaned = input.toLowerCase().replace(/[^a-z0-9-.]+/g, " ");
     const tokens = cleaned.split(/\s+/).filter((t) => t.length > 0);
@@ -79,6 +105,12 @@ export const InputParser = {
     return "np";
   },
 
+  /**
+   * Parses the raw input string into a structured buff configuration object.
+   * Handles macro expansion, global vs. positional modifiers, and numeric type conversion.
+   * * @param {string} input - The raw user input containing buffs, classes, and flags.
+   * @returns {{buffs: Object, warnings: string[]}} An object containing the populated `buffs` state and an array of unrecognized tokens.
+   */
   parseBuffs(input) {
     const pattern = this.getPattern();
     const cleaned = input.toLowerCase().replace(/[^a-z0-9-.]+/g, " ");
@@ -87,8 +119,8 @@ export const InputParser = {
     const buffs = {
       mods: {},
       flags: {},
-      cardMods: {1: {}, 2: {}, 3: {}, 4: {}},
-      cardFlags: {1: {}, 2: {}, 3: {}, 4: {}},
+      cardMods: { 1: {}, 2: {}, 3: {}, 4: {} },
+      cardFlags: { 1: {}, 2: {}, 3: {}, 4: {} },
       enemyHp: Number.MAX_SAFE_INTEGER,
       enemyAttribute: "none",
       enemyClass: "shielder",
@@ -96,22 +128,37 @@ export const InputParser = {
       str: 0,
       npLevel: 5,
       overchargeLevel: 1,
+      /**
+       * Safely retrieves a global numeric modifier.
+       * @param {string} k - The modifier key.
+       * @returns {number} The modifier value or 0 if undefined.
+       */
       getMod(k) {
         return this.mods[k] || 0;
       },
+      /**
+       * Safely checks if a global boolean flag is active.
+       * @param {string} k - The flag key.
+       * @returns {boolean} True if the flag is present.
+       */
       getFlag(k) {
         return !!this.flags[k];
       },
     };
+    
     const warnings = [];
-    let currentPos = 0;
+    let currentPos = 0; // Tracks if subsequent buffs apply to a specific card position (1-4) or globally (0)
 
     while (queue.length > 0) {
       let token = queue.shift();
+      
+      // Expand predefined macros into their individual tokens and push them back onto the queue
       if (GameDataLoader.FLAT_BUFF_MACROS[token]) {
         queue = [...GameDataLoader.FLAT_BUFF_MACROS[token], ...queue];
         continue;
       }
+      
+      // Resolve aliases to their base keys
       if (GameDataLoader.ALIASES[token]) token = GameDataLoader.ALIASES[token];
 
       const match = pattern.exec(token);
@@ -120,19 +167,29 @@ export const InputParser = {
         const type = GameDataLoader.ALIASES[rawType] || rawType;
         const valStr = match.groups.value;
 
+        // Categorize Target Types
         if (ATTRIBUTES.has(type)) buffs.enemyAttribute = type;
         else if (CLASSES.has(type)) buffs.enemyClass = type;
+        // Handle Flags (No numerical value)
         else if (!valStr || valStr === "-" || valStr === ".") {
+          // Special positional reset flags
           if (["nobf", "af", "qf", "bf", "bc", "nocap"].includes(type)) {
             buffs.flags[type] = true;
             currentPos = 0;
-          } else if (type.startsWith("card")) {
+          } 
+          // Switch to positional parsing
+          else if (type.startsWith("card")) {
             currentPos = parseInt(type.substring(4)) || 0;
-          } else
+          } 
+          // Standard flags
+          else {
             currentPos > 0
               ? (buffs.cardFlags[currentPos][type] = true)
               : (buffs.flags[type] = true);
-        } else {
+          }
+        } 
+        // Handle Numerical Modifiers
+        else {
           const val = parseFloat(valStr);
           if (!isNaN(val)) {
             if (type === "hp") buffs.enemyHp = val;
@@ -149,6 +206,8 @@ export const InputParser = {
             } else {
               const targetMap =
                 currentPos > 0 ? buffs.cardMods[currentPos] : buffs.mods;
+              
+              // Multi-color modifiers (e.g., 'm' affects am, bm, qm simultaneously)
               if (type === "m") {
                 ["am", "bm", "qm"].forEach(
                   (t) => (targetMap[t] = (targetMap[t] || 0) + val),
@@ -159,10 +218,14 @@ export const InputParser = {
                 );
               } else targetMap[type] = (targetMap[type] || 0) + val;
             }
-          } else warnings.push(token);
+          } else {
+            warnings.push(token);
+          }
         }
-      } else warnings.push(token);
+      } else {
+        warnings.push(token);
+      }
     }
-    return {buffs, warnings};
+    return { buffs, warnings };
   },
 };

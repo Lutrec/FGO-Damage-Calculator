@@ -1,3 +1,8 @@
+/**
+ * @file GameDataLoader.js
+ * Handles the asynchronous loading, normalization, and caching of static game data.
+ * Serves as the single source of truth for base servant stats, aliases, and relations.
+ */
 export const GameDataLoader = {
   CLASS_ATTACK_MODIFIERS: {},
   ATTRIBUTE_RELATIONS: {},
@@ -8,6 +13,11 @@ export const GameDataLoader = {
   SERVANT_MAP: {},
   ALIASES: {},
 
+  /**
+   * Initializes the data layer by fetching all required JSON resources concurrently.
+   * Maps internal aliases and nickname associations.
+   * @returns {Promise<void>}
+   */
   async initialize() {
     console.log("Loading FGO Data...");
     const [
@@ -86,22 +96,25 @@ export const GameDataLoader = {
     return res;
   },
 
- createServantRecord(data) {
+  /**
+   * Normalizes raw servant JSON data into a standardized servant object.
+   * @param {Object} data - Raw servant data object.
+   * @returns {Object} Standardized servant record.
+   */
+  createServantRecord(data) {
     const convertHitDist = (arr) => (arr ? arr.map((x) => x / 100.0) : []);
     const npDamageStats = {};
-    const npDamageStatsOC = {}; // 1. Initialize the OC dictionary
+    const npDamageStatsOC = {};
     const npCardTypes = {};
 
-    // 2. Add ocMod as a parameter to the helper function
     const processNp = (key, colour, dmgMod, ocMod) => {
       if (colour) {
         if (dmgMod) npDamageStats[key] = dmgMod;
-        if (ocMod) npDamageStatsOC[key] = ocMod; // 3. Save the OC array
+        if (ocMod) npDamageStatsOC[key] = ocMod;
         npCardTypes[key] = colour;
       }
     };
 
-    // 4. Map the exact field names from your JSON
     processNp("0", data.npColour, data.npDamageMod, data.npDamageModOc);
     processNp("1", data.npColour1, data.npDamageMod1, data.npDamageModOc1);
     processNp("2", data.npColour2, data.npDamageMod2, data.npDamageModOc2);
@@ -117,7 +130,7 @@ export const GameDataLoader = {
       attackMax: data.atkMax,
       attackGrowth: data.atkGrowth || [],
       npDamageStats,
-      npDamageStatsOC, // 5. Pass the populated dictionary here instead of {}
+      npDamageStatsOC,
       classType: data.class ? data.class.toLowerCase() : "shielder",
       attribute: data.attribute ? data.attribute.toLowerCase() : "earth",
       passiveStat: data.passive || "",

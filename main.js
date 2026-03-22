@@ -1,32 +1,39 @@
-import {GameDataLoader} from "./GameDataLoader.js";
-import {WaveOrchestrator} from "./WaveOrchestrator.js";
+import { GameDataLoader } from "./GameDataLoader.js";
+import { WaveOrchestrator } from "./WaveOrchestrator.js";
 
+/**
+ * @file main.js
+ * The Frontend Controller & UI Renderer.
+ * Manages DOM manipulation, parses inputs via the Calculation Engine, caches chat history
+ * via localStorage, and generates interactive Discord-style HTML embeds.
+ */
 document.addEventListener("DOMContentLoaded", async () => {
   const calcInput = document.getElementById("calcInput");
   const chatContainer = document.getElementById("chatContainer");
 
-  // Avatars
+  // --- Avatar Assets ---
   const BOT_AVATAR = "./assets/wickedNero.png";
   const USER_AVATAR =
     "https://static.atlasacademy.io/JP/MasterFace/equip00441.png";
 
-  // --- HISTORY MANAGEMENT ---
+  // --- History Management ---
   let history = JSON.parse(localStorage.getItem("fgoCalcHistory")) || [];
 
+  /**
+   * Saves the current chat history to localStorage.
+   * Retains only the last 100 items to prevent DOM bloat and storage crashes.
+   */
   function saveState() {
-    // Keep only the last 50 items to prevent DOM bloat and storage crashes
-    if (history.length > 50) {
-      history = history.slice(-50);
+    if (history.length > 100) {
+      history = history.slice(-100);
     }
     localStorage.setItem("fgoCalcHistory", JSON.stringify(history));
   }
 
-  // --- HELP MODAL LOGIC ---
+  // --- Modal & UI Action Binding ---
   const helpBtn = document.getElementById("helpBtn");
   const helpModal = document.getElementById("helpModal");
   const closeModalBtn = document.getElementById("closeModalBtn");
-
-  // Clear Button Logic
   const clearBtn = document.getElementById("clearBtn");
 
   clearBtn.addEventListener("click", () => {
@@ -36,12 +43,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       chatContainer.innerHTML = "";
       calcInput.style.height = "auto";
 
-      // Post a fresh greeting that doesn't save to the new empty history
       appendBotMessage(
         "Chat history cleared. Ready for new calculations!",
         false,
         null,
-        false
+        false,
       );
     }
   });
@@ -60,8 +66,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // --- INITIALIZATION ---
+  // --- Initialization sequence ---
   const sendBtn = document.getElementById("sendBtn");
+  
   try {
     await GameDataLoader.initialize();
     calcInput.disabled = false;
@@ -83,14 +90,21 @@ document.addEventListener("DOMContentLoaded", async () => {
       "Data loaded successfully! Type your command below and press Enter.",
       false,
       null,
-      false
+      false,
     );
   } catch (err) {
     console.error("Startup Crash:", err);
-    appendBotMessage(`Failed to load JSON data: ${err.message}`, true, null, false);
+    appendBotMessage(
+      `Failed to load JSON data: ${err.message}`,
+      true,
+      null,
+      false,
+    );
   }
 
-  // --- INPUT HANDLING ---
+  // --- Input Handling ---
+  
+  // Auto-resize input area
   calcInput.addEventListener("input", function () {
     this.style.height = "auto";
     this.style.height = this.scrollHeight + "px";
@@ -102,6 +116,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
+  /**
+   * Reads input, runs the battle simulation orchestrator, and triggers UI updates.
+   */
   function handleSend() {
     const input = calcInput.value.trim();
     if (!input) return;
@@ -120,7 +137,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // Trigger on Enter key
   calcInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -128,21 +144,35 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Trigger on Send Button click
   sendBtn.addEventListener("click", () => {
     handleSend();
   });
 
-  // --- UI HELPERS ---
+  // --- UI Helpers ---
+
+  /**
+   * Forces the chat window to scroll to the most recent message.
+   */
   function scrollToBottom() {
     chatContainer.scrollTop = chatContainer.scrollHeight;
   }
 
+  /**
+   * Retrieves the current local time formatted as HH:MM AM/PM.
+   * @returns {string} Formatted time string.
+   */
   function getTimeString() {
     const now = new Date();
-    return now.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+    return now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   }
 
+  /**
+   * Renders a system or error message disguised as a Bot chat entry.
+   * @param {string} text - The message to display.
+   * @param {boolean} [isError=false] - If true, styles the message as an error.
+   * @param {string|null} [time=null] - Optional forced timestamp.
+   * @param {boolean} [save=true] - Whether to persist this message to history.
+   */
   function appendBotMessage(text, isError = false, time = null, save = true) {
     const msgTime = time || getTimeString();
     const msgDiv = document.createElement("div");
@@ -163,11 +193,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     scrollToBottom();
 
     if (save) {
-      history.push({type: "bot", text, isError, time: msgTime});
+      history.push({ type: "bot", text, isError, time: msgTime });
       saveState();
     }
   }
 
+  /**
+   * Renders a user command entry in the chat container.
+   * @param {string} text - The raw input command.
+   * @param {string|null} [time=null] - Optional forced timestamp.
+   * @param {boolean} [save=true] - Whether to persist this message to history.
+   */
   function appendUserMessage(text, time = null, save = true) {
     const msgTime = time || getTimeString();
     const msgDiv = document.createElement("div");
@@ -208,12 +244,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     scrollToBottom();
 
     if (save) {
-      history.push({type: "user", text, time: msgTime});
+      history.push({ type: "user", text, time: msgTime });
       saveState();
     }
   }
 
-  // --- EMBED GENERATOR ---
+  // --- Embed Generator ---
+
+  /**
+   * Constructs and injects a Discord-style interactive embed showing calculation results.
+   * Supports pagination for multi-wave calculations and dynamic expanding detailed views.
+   * @param {Array<Object>} waves - The output data array from the WaveOrchestrator.
+   * @param {string|null} [time=null] - Optional forced timestamp.
+   * @param {boolean} [save=true] - Whether to persist this embed to history.
+   */
   function appendCalculationEmbed(waves, time = null, save = true) {
     const msgTime = time || getTimeString();
     let currentWaveIndex = 0;
@@ -222,35 +266,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     const capitalize = (s) =>
       s && s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 
+    /** Resolves Atlas Academy class icon URLs based on string names. */
     const getClassIconUrl = (cls) => {
       const idMap = {
-        saber: 1,
-        archer: 2,
-        lancer: 3,
-        rider: 4,
-        caster: 5,
-        assassin: 6,
-        berserker: 7,
-        shielder: 8,
-        ruler: 9,
-        alterego: 10,
-        alteregokiara: 10,
-        avenger: 11,
-        mooncancer: 23,
-        mooncancerciel: 23,
-        foreigner: 25,
-        pretender: 28,
-        beast: 33,
-        beastdraco: 33,
-        beasteresh: 33,
-        beastolga: 33,
-        beast1: 34,
-        beast1lost: 34,
-        beast2: 34,
-        beast3r: 34,
-        beast3l: 34,
-        beast4: 34,
-        beast6: 34,
+        saber: 1, archer: 2, lancer: 3, rider: 4, caster: 5, assassin: 6, berserker: 7, shielder: 8,
+        ruler: 9, alterego: 10, alteregokiara: 10, avenger: 11, mooncancer: 23, mooncancerciel: 23, foreigner: 25,
+        pretender: 28, beast: 33, beastdraco: 33, beasteresh: 33, beastolga: 33, beast1: 34, beast1lost: 34,
+        beast2: 34, beast3r: 34, beast3l: 34, beast4: 34, beast6: 34,
       };
 
       const id = idMap[cls?.toLowerCase()] || 97;
@@ -263,6 +285,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const getSkillIcon = (id) =>
       `<img src="https://static.atlasacademy.io/JP/SkillIcons/skill_${id}.png" style="width: 16px; height: 16px; margin-right: 6px;" alt="">`;
 
+    /** Converts a raw card chain string into a string of HTML image icons. */
     const getColoredChain = (chain) => {
       if (!chain) return "";
 
@@ -288,6 +311,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         .join("");
     };
 
+    /** Formats active damage and NP modifiers into HTML string rows. */
     const formatBuffs = (snapshot) => {
       const d = snapshot.damageMods;
       const n = snapshot.npGainMods;
@@ -318,6 +342,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       );
     };
 
+    /** Formats the enemy target block, hiding irrelevant attributes. */
     const buildEnemyHtml = (snapshot) => {
       const enemyClass = snapshot.enemy.enemyClass;
       const enemyAttr = snapshot.enemy.enemyAttribute;
@@ -345,6 +370,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       `;
     };
 
+    // Construct Base Embed Wrapper
     const msgDiv = document.createElement("div");
     msgDiv.className = "message";
     if (save) msgDiv.classList.add("animate-message");
@@ -430,11 +456,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const formatMeta = (w) => {
       return (
-        `<strong>Lv:</strong> ${w.level} | <strong>NP Level:</strong> ${w.npLevel} | <strong>NP Damage Mod:</strong> ${w.npDamageMod}%<br>` +
-        `<strong>ATK:</strong> ${Math.floor(w.baseAtk)} | <strong>Fou:</strong> ${w.fou} | <strong>Fou Paw:</strong> ${w.fouPaw} | <strong>CE:</strong> ${w.ce}`
+        `<strong>Lv:</strong> ${w.level} | <strong>NP:</strong> ${w.npLevel} | <strong>NP Dmg:</strong> ${w.npDamageMod}%<br>` +
+        `<strong>Atk:</strong> ${Math.floor(w.baseAtk)} | <strong>Fou:</strong> ${w.fou} | <strong>Fou Paw:</strong> ${w.fouPaw} | <strong>CE:</strong> ${w.ce}`
       );
     };
 
+    /**
+     * Renders a specific page/wave into the embed.
+     * Index 0 acts as a summary page if `isMultiWave` is true.
+     * @param {number} index - The page index to render.
+     */
     const renderWave = (index) => {
       const isSummaryPage = isMultiWave && index === 0;
 
@@ -534,7 +565,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <span style="display: flex; align-items: center; margin-right: 6px;">
                         <img src="${cardIconUrl}" style="width: 16px; height: 16px;" alt="Card">
                     </span>
-                    ${critTag}<span style="margin-left: 2px;">: <strong>${Math.floor(card.avgDamage).toLocaleString()}</strong> (${Math.floor(card.minDamage).toLocaleString()} - ${Math.floor(card.maxDamage).toLocaleString()})</span>
+                    <span style="margin-left: 2px;"><strong>${Math.floor(card.avgDamage).toLocaleString()}</strong> (${Math.floor(card.minDamage).toLocaleString()} - ${Math.floor(card.maxDamage).toLocaleString()})</span>&nbsp;${critTag}
                 </div>
                 
                 <div class="summary-extra" style="display: ${showingDetails ? "block" : "none"}; margin-top: 4px;">
@@ -550,7 +581,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
 
         detailContainer.style.display = showingDetails ? "block" : "none";
-
         hpEl.innerHTML = buildEnemyHtml(wave.snapshot);
 
         const hpRemainingMin = data.hpForMinRoll;
@@ -584,6 +614,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         totalOutputEl.innerHTML = totalOutputHtml;
       }
 
+      // Configure Pagination Buttons
       if (isMultiWave) {
         const maxPages = waves.length;
         btnFirst.style.display =
@@ -604,6 +635,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     };
 
+    // View Toggles
     btnToggle.addEventListener("click", () => {
       const prevButtonY = btnToggle.getBoundingClientRect().top;
 
@@ -621,10 +653,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       const newButtonY = btnToggle.getBoundingClientRect().top;
       const chatContainer = document.getElementById("chatContainer");
-      chatContainer.scrollTop += (newButtonY - prevButtonY);
+      chatContainer.scrollTop += newButtonY - prevButtonY;
     });
 
-    // --- Scroll Anchoring Helper for Wave Navigation ---
+    /**
+     * Updates the UI to show a new wave and anchors the scroll position 
+     * to prevent sudden jumps in the chat log.
+     * @param {number} newIndex - Target page index.
+     * @param {HTMLElement} clickedBtn - The button used to trigger the change.
+     */
     const changeWave = (newIndex, clickedBtn) => {
       const prevY = clickedBtn.getBoundingClientRect().top;
 
@@ -633,33 +670,35 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       const newY = clickedBtn.getBoundingClientRect().top;
       const chatContainer = document.getElementById("chatContainer");
-      chatContainer.scrollTop += (newY - prevY);
+      chatContainer.scrollTop += newY - prevY;
     };
 
     const maxPages = isMultiWave ? waves.length : 0;
-    
+
     btnFirst.addEventListener("click", () => {
       changeWave(0, btnFirst);
     });
-    
+
     btnPrev.addEventListener("click", () => {
       if (currentWaveIndex > 0) changeWave(currentWaveIndex - 1, btnPrev);
     });
-    
+
     btnNext.addEventListener("click", () => {
-      if (currentWaveIndex < maxPages) changeWave(currentWaveIndex + 1, btnNext);
+      if (currentWaveIndex < maxPages)
+        changeWave(currentWaveIndex + 1, btnNext);
     });
-    
+
     btnLast.addEventListener("click", () => {
       changeWave(maxPages, btnLast);
     });
 
+    // Execute first render
     renderWave(currentWaveIndex);
     chatContainer.appendChild(msgDiv);
     scrollToBottom();
-    
+
     if (save) {
-      history.push({type: "embed", waves, time: msgTime});
+      history.push({ type: "embed", waves, time: msgTime });
       saveState();
     }
   }

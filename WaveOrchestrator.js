@@ -1,14 +1,22 @@
+/**
+ * @file WaveOrchestrator.js
+ * Manages multi-wave battle simulations, separating global and wave-specific modifiers.
+ */
 import {GameDataLoader} from "./GameDataLoader.js";
 import {InputParser} from "./InputParser.js";
 import {CalculationEngine} from "./CalculationEngine.js";
 
 export const WaveOrchestrator = {
+  /**
+   * Orchestrates the parsing and calculation of a full battle, supporting multi-wave carryover.
+   * @param {string} input - The raw user input string.
+   * @returns {Array} An array of fully calculated wave results.
+   * @throws {Error} If no input is provided or the servant is not found.
+   */
   simulateBattle(input) {
-    // 1. Normalize line breaks and multiple spaces into a single space
     const normalizedInput = input.trim().replace(/\s+/g, " ");
     if (!normalizedInput) throw new Error("Error: No input provided.");
 
-    // 2. Safe servant extraction
     const firstSpaceIndex = normalizedInput.indexOf(" ");
     let servantToken = "";
     let inputBody = "";
@@ -16,16 +24,13 @@ export const WaveOrchestrator = {
     if (firstSpaceIndex === -1) {
       servantToken = normalizedInput.toLowerCase();
     } else {
-      servantToken = normalizedInput
-        .substring(0, firstSpaceIndex)
-        .toLowerCase();
+      servantToken = normalizedInput.substring(0, firstSpaceIndex).toLowerCase();
       inputBody = normalizedInput.substring(firstSpaceIndex + 1).trim();
     }
 
     const servant = GameDataLoader.SERVANT_MAP[servantToken];
     if (!servant) throw new Error(`Servant not found: ${servantToken}`);
 
-    // 3. Extract Waves exactly as you originally intended (inside brackets)
     const waveRegex = /\[(.*?)\]/g;
     let waveStrings = [];
     let match;
@@ -35,13 +40,8 @@ export const WaveOrchestrator = {
 
     const isMultiWave = waveStrings.length > 0;
     const wavesToProcess = isMultiWave ? waveStrings : [inputBody];
+    const globalString = isMultiWave ? inputBody.replace(/\[.*?\]/g, " ").trim() : inputBody;
 
-    // 4. Global buffs are everything NOT inside brackets
-    const globalString = isMultiWave
-      ? inputBody.replace(/\[.*?\]/g, " ").trim()
-      : inputBody;
-
-    // Parse passives first, then merge global user inputs
     let globalBuffs = InputParser.parseBuffs(servant.passiveStat || "").buffs;
     if (globalString !== "") {
       const globalParseResult = InputParser.parseBuffs(globalString);
@@ -58,20 +58,8 @@ export const WaveOrchestrator = {
       const waveCardChain = InputParser.extractCardChain(waveString);
       const waveParseResult = InputParser.parseBuffs(waveString);
 
-      let totalBuffs;
-      if (isMultiWave) {
-        // Merge the specific wave brackets onto the global baseline
-        totalBuffs = this.mergeBuffs(globalBuffs, waveParseResult.buffs);
-      } else {
-        // If there are no brackets, globalBuffs already contains everything. Prevent double-buffing.
-        totalBuffs = globalBuffs;
-      }
-
-      const snapshotInfo = CalculationEngine.createBuffSnapshot(
-        servant,
-        totalBuffs,
-      );
-
+      const totalBuffs = isMultiWave ? this.mergeBuffs(globalBuffs, waveParseResult.buffs) : globalBuffs;
+      const snapshotInfo = CalculationEngine.createBuffSnapshot(servant, totalBuffs);
       snapshotInfo.snapshot.damageMods.npLevelValue = totalBuffs.npLevel;
 
       const fullResult = CalculationEngine.calculateCardChainDamage(
@@ -86,22 +74,13 @@ export const WaveOrchestrator = {
 
       const npLevelVal = totalBuffs.npLevel || 5;
       const npOverride = snapshotInfo.snapshot.damageMods.npDamageOverride || 0;
-      const npModPercentage =
-        npOverride > 0
-          ? npOverride
-          : snapshotInfo.snapshot.npDamageStat[npLevelVal - 1] || 0;
-      const fouVal =
-        totalBuffs.mods["f"] !== undefined ? totalBuffs.getMod("f") : 1000;
+      const npModPercentage = npOverride > 0 ? npOverride : snapshotInfo.snapshot.npDamageStat[npLevelVal - 1] || 0;
+      const fouVal = totalBuffs.mods["f"] !== undefined ? totalBuffs.getMod("f") : 1000;
       const ceVal = totalBuffs.getMod("ce") || 0;
       const fpVal = totalBuffs.getMod("fp") || 0;
-      const resolvedAtk = snapshotInfo.snapshot.resolvedBaseAttack;
-      const baseAtk = resolvedAtk - fouVal - ceVal; // Reverses the math to get raw base ATK
-      const reqLevel =
-        totalBuffs.requestedLevel > 0
-          ? totalBuffs.requestedLevel
-          : servant.levelDefault;
-      const strVal =
-        totalBuffs.str !== 0 ? totalBuffs.str : totalBuffs.getMod("str") || 0;
+      const baseAtk = snapshotInfo.snapshot.resolvedBaseAttack - fouVal - ceVal;
+      const reqLevel = totalBuffs.requestedLevel > 0 ? totalBuffs.requestedLevel : servant.levelDefault;
+      const strVal = totalBuffs.str !== 0 ? totalBuffs.str : totalBuffs.getMod("str") || 0;
 
       results.push({
         waveIndex: i + 1,
@@ -122,7 +101,6 @@ export const WaveOrchestrator = {
         data: fullResult,
       });
 
-      // Carry over refund and stars to the next wave
       if (fullResult && fullResult.loopResult) {
         currentNpMin = fullResult.loopResult.totalRefundMinRoll / 100.0;
         currentNpMax = fullResult.loopResult.totalRefundMaxRoll / 100.0;
@@ -133,24 +111,23 @@ export const WaveOrchestrator = {
     return results;
   },
 
+  /**
+   * Merges a wave-specific buff object into a base global buff object.
+   * @param {Object} global - The base buff state.
+   * @param {Object} wave - The wave-specific buff state.
+   * @returns {Object} A unified buff state object.
+   */
   mergeBuffs(global, wave) {
     const newMods = {...global.mods};
     const newFlags = {...global.flags};
-    for (const [k, v] of Object.entries(wave.mods))
-      newMods[k] = (newMods[k] || 0) + v;
+    for (const [k, v] of Object.entries(wave.mods)) newMods[k] = (newMods[k] || 0) + v;
     for (const [k, v] of Object.entries(wave.flags)) newFlags[k] = v;
 
     const newCardMods = {1: {}, 2: {}, 3: {}, 4: {}};
     const newCardFlags = {1: {}, 2: {}, 3: {}, 4: {}};
     for (let i = 1; i <= 4; i++) {
-      newCardMods[i] = {
-        ...(global.cardMods[i] || {}),
-        ...(wave.cardMods[i] || {}),
-      };
-      newCardFlags[i] = {
-        ...(global.cardFlags[i] || {}),
-        ...(wave.cardFlags[i] || {}),
-      };
+      newCardMods[i] = {...(global.cardMods[i] || {}), ...(wave.cardMods[i] || {})};
+      newCardFlags[i] = {...(global.cardFlags[i] || {}), ...(wave.cardFlags[i] || {})};
     }
 
     return {
@@ -159,31 +136,15 @@ export const WaveOrchestrator = {
       flags: newFlags,
       cardMods: newCardMods,
       cardFlags: newCardFlags,
-      enemyHp:
-        wave.enemyHp !== Number.MAX_SAFE_INTEGER
-          ? wave.enemyHp
-          : global.enemyHp,
-      enemyAttribute:
-        wave.enemyAttribute !== "none"
-          ? wave.enemyAttribute
-          : global.enemyAttribute,
-      enemyClass:
-        wave.enemyClass !== "shielder" ? wave.enemyClass : global.enemyClass,
+      enemyHp: wave.enemyHp !== Number.MAX_SAFE_INTEGER ? wave.enemyHp : global.enemyHp,
+      enemyAttribute: wave.enemyAttribute !== "none" ? wave.enemyAttribute : global.enemyAttribute,
+      enemyClass: wave.enemyClass !== "shielder" ? wave.enemyClass : global.enemyClass,
       npLevel: wave.npLevel !== 5 ? wave.npLevel : global.npLevel,
-      requestedLevel:
-        wave.requestedLevel !== 0 ? wave.requestedLevel : global.requestedLevel,
+      requestedLevel: wave.requestedLevel !== 0 ? wave.requestedLevel : global.requestedLevel,
       str: wave.str !== 0 ? wave.str : global.str,
-      overchargeLevel:
-        wave.overchargeLevel !== 1
-          ? wave.overchargeLevel
-          : global.overchargeLevel,
-
-      getMod(k) {
-        return this.mods[k] || 0;
-      },
-      getFlag(k) {
-        return !!this.flags[k];
-      },
+      overchargeLevel: wave.overchargeLevel !== 1 ? wave.overchargeLevel : global.overchargeLevel,
+      getMod(k) { return this.mods[k] || 0; },
+      getFlag(k) { return !!this.flags[k]; },
     };
   },
 };

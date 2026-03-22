@@ -1,5 +1,12 @@
 import {GameDataLoader} from "./GameDataLoader.js";
 
+/**
+ * @file CalculationEngine.js
+ * The core mathematical engine for the FGO Damage Calculator.
+ * Accurately replicates in-game damage, refund, and star generation formulas,
+ * including overkill thresholds, positional multipliers, and Monte Carlo probability simulations.
+ */
+
 // --- Game Constants ---
 const BASE_DAMAGE_MULTIPLIER = 0.23;
 export const DEFAULT_FOU_ATTACK = 1000;
@@ -57,8 +64,13 @@ const CRITDMG_NPDMG_LOWER_BOUND = -100000;
 const SPECIALDEFMOD_UPPER_BOUND = 500;
 const SPECIALDEFMOD_LOWER_BOUND = -100;
 
-// Helper Class to track card loop state
+/**
+ * Helper Class to track the state of a simulated attack chain, accumulating damage, refund, and star generation.
+ */
 class CardLoopResult {
+  /**
+   * @param {number} initialHp - The starting HP of the target enemy.
+   */
   constructor(initialHp) {
     this.hpForMinRoll = initialHp;
     this.hpForMaxRoll = initialHp;
@@ -81,6 +93,10 @@ class CardLoopResult {
     this.successProbability = 0;
   }
 
+  /**
+   * Merges another CardLoopResult into this instance.
+   * @param {CardLoopResult} other - The result to merge.
+   */
   add(other) {
     this.damagingCardCount += other.damagingCardCount;
     this.totalMinDamage += other.totalMinDamage;
@@ -99,18 +115,39 @@ class CardLoopResult {
   }
 }
 
-// Internal pure helper methods
+/**
+ * Validates a buff value against FGO's hardcaps and logs warnings if exceeded.
+ * @param {number} value - The evaluated buff value.
+ * @param {string} name - The name of the buff for logging purposes.
+ * @param {number} lowerBound - Minimum allowed value.
+ * @param {number} upperBound - Maximum allowed value.
+ * @param {string[]} warnings - Array to push warning strings into.
+ */
 function checkBuffCap(value, name, lowerBound, upperBound, warnings) {
   if (value > upperBound || value < lowerBound) {
     warnings.push(`Buff cap reached for: ${name}`);
   }
 }
 
+/**
+ * Applies bounding caps to a value unless the 'nocap' flag is active.
+ * @param {number} value - The numerical value to cap.
+ * @param {number} min - The minimum bound.
+ * @param {number} max - The maximum bound.
+ * @param {boolean} nocap - If true, bypasses the cap logic.
+ * @returns {number} The capped (or raw) value.
+ */
 function applyCap(value, min, max, nocap) {
   if (nocap) return value;
   return Math.max(min, Math.min(max, value));
 }
 
+/**
+ * Uses a Monte Carlo simulation to calculate the probability of defeating an enemy.
+ * @param {number[]} avgCardDamages - Array of average damages for the cards used.
+ * @param {number} enemyHp - The target's maximum HP.
+ * @returns {number} The probability (0.0 to 1.0) of a successful kill.
+ */
 function calculateSuccessProbability(avgCardDamages, enemyHp) {
   if (enemyHp >= Number.MAX_SAFE_INTEGER) return 0;
   const damageNeeded = enemyHp * 1000;
@@ -128,6 +165,17 @@ function calculateSuccessProbability(avgCardDamages, enemyHp) {
 }
 
 export const CalculationEngine = {
+  /**
+   * Main execution function for evaluating an entire card chain.
+   * @param {Object} servant - The servant data object.
+   * @param {Object} buffs - The active buffs state.
+   * @param {Object} globalBuffs - Global wave/enemy modifiers.
+   * @param {string} cardChain - The selected card string (e.g., "np,b,b").
+   * @param {number} startingNpMin - Minimum starting NP percentage.
+   * @param {number} startingNpMax - Maximum starting NP percentage.
+   * @param {number} startingStars - Starting star count.
+   * @returns {Object} An object containing the final `loopResult` and `chainProps`.
+   */
   calculateCardChainDamage(
     servant,
     buffs,
@@ -270,6 +318,15 @@ export const CalculationEngine = {
     return {loopResult: finalResult, chainProps};
   },
 
+  /**
+   * Compiles the raw loop results into a normalized format.
+   * @param {CardLoopResult} finalResult - The raw processing results.
+   * @param {Object} globalBuffs - Global wave modifiers.
+   * @param {number} startingNpMin - Base NP refund minimum.
+   * @param {number} startingNpMax - Base NP refund maximum.
+   * @param {number} startingStars - Base star generation.
+   * @returns {Object|null} The aggregated final damage, refund, and star generation.
+   */
   aggregateResults(
     finalResult,
     globalBuffs,
@@ -319,6 +376,12 @@ export const CalculationEngine = {
     };
   },
 
+  /**
+   * Captures the servant's stats, class advantages, and active buffs into a single immutable snapshot.
+   * @param {Object} servant - Core servant entity data.
+   * @param {Object} buffs - Applied active buffs.
+   * @returns {Object} An object containing the combined snapshot and any cap warnings.
+   */
   createBuffSnapshot(servant, buffs) {
     const attackOverride = buffs.getMod("ta");
     const classAdvantageOverride = buffs.getMod("cao");
@@ -337,7 +400,6 @@ export const CalculationEngine = {
       let reqLevel = buffs.requestedLevel;
       let effectiveLevel = reqLevel <= 0 ? servant.levelDefault : reqLevel;
 
-      // CORRECTED: Pull directly from the growth array for ALL levels
       if (effectiveLevel > 0) {
         let atkGrowth = servant.attackGrowth;
         if (atkGrowth && atkGrowth.length >= effectiveLevel) {
@@ -484,7 +546,6 @@ export const CalculationEngine = {
       );
     }
 
-    // --- Check the mods dictionary for str ---
     let strKey = String(buffs.str !== 0 ? buffs.str : buffs.getMod("str") || 0);
     let finalStrKey = "0";
 
@@ -492,7 +553,6 @@ export const CalculationEngine = {
       finalStrKey = strKey;
     }
 
-    // --- Check the mods dictionary for oc ---
     let overchargeLevel =
       buffs.overchargeLevel !== 1
         ? buffs.overchargeLevel
@@ -586,6 +646,17 @@ export const CalculationEngine = {
     return {snapshot, capInfo: {warnings, nocap}};
   },
 
+  /**
+   * Analyzes the selected cards to determine active chains (Brave, Mighty, Buster) and first-card bonuses.
+   * @param {string} effectiveChain - The string representation of the card selections.
+   * @param {string} normalizedChain - Card string adjusted for the NP card type.
+   * @param {string} npCardType - Core NP card color.
+   * @param {Object} buffs - Applied active buffs.
+   * @param {number} primaryCardCount - Non-Extra cards included.
+   * @param {boolean} isSingleCardTest - Whether only testing one card.
+   * @param {boolean} isExtraOnlyTest - Whether only testing an Extra attack.
+   * @returns {Object} Analytical properties relating to card chains.
+   */
   analyzeChain(
     effectiveChain,
     normalizedChain,
@@ -666,6 +737,17 @@ export const CalculationEngine = {
     };
   },
 
+  /**
+   * Iterates through the selected cards (excluding Extra Attack) and calculates hit-by-hit metrics.
+   * @param {Object} servant - Core servant entity data.
+   * @param {Object} buffs - Applied active buffs.
+   * @param {Object} g - Global state parameters.
+   * @param {Object} chainProps - Analysis returned from analyzeChain.
+   * @param {string} effectiveChain - The string representation of the card selections.
+   * @param {boolean} isSingleCardTest - Checking if loop runs single iteration.
+   * @param {number} forcedPosition - Enforced array position modifier.
+   * @returns {CardLoopResult} Aggregated results for the primary cards.
+   */
   processMainCardLoop(
     servant,
     buffs,
@@ -720,8 +802,6 @@ export const CalculationEngine = {
       const cardResult = this.processOneCard(input);
 
       result.add(cardResult.loopResult);
-
-      // --- THE MISSING LINE RESTORED ---
       result.perCardResults.push(cardResult.perCardResult);
 
       result.hpForMinRoll = cardResult.finalHpMin;
@@ -735,6 +815,14 @@ export const CalculationEngine = {
     return result;
   },
 
+  /**
+   * Retrieves or constructs the per-hit damage distribution array for a specific card type.
+   * @param {Object} servant - Core servant entity data.
+   * @param {Object} g - Global state parameters.
+   * @param {string} currentCardToken - Type code for the card ('a', 'b', 'q', 'np', 'e').
+   * @param {number} hitMultiplier - Integer value scaling hit quantities.
+   * @returns {number[]} Array of hit percentage distributions.
+   */
   getExpandedHitDistribution(servant, g, currentCardToken, hitMultiplier) {
     let hitDistKey =
       currentCardToken === "np"
@@ -789,6 +877,18 @@ export const CalculationEngine = {
     return originalDist;
   },
 
+  /**
+   * Calculates the base probability of generating a critical star for a given card.
+   * @param {Object} servant - Core servant entity data.
+   * @param {Object} g - Global state parameters.
+   * @param {Object} localMods - Positional local buffs applied to this card.
+   * @param {string} currentCardToken - The string value of the card.
+   * @param {number} actualPosition - Card's array position in sequence.
+   * @param {number} firstCardBonus - Bonus applied if starting the chain.
+   * @param {boolean} isCrit - If true, evaluates crit modifiers.
+   * @param {boolean} isNonDamagingNP - Determines bypass behaviors.
+   * @returns {number} The raw float chance percentage for stargen.
+   */
   getBaseStarChance(
     servant,
     g,
@@ -892,6 +992,11 @@ export const CalculationEngine = {
     );
   },
 
+  /**
+   * Core logic for a single card: simulates damage, overkill thresholds, and resource generation per hit.
+   * @param {Object} input - Contextual payload containing the servant, buffs, and loop state.
+   * @returns {Object} A partial result object to be merged by the main loop.
+   */
   processOneCard(input) {
     const {servant, buffs, g, chainProps, currentCardToken, actualPosition} =
       input;
@@ -1417,6 +1522,15 @@ export const CalculationEngine = {
     };
   },
 
+  /**
+   * Handles the specific mathematics for the Extra Attack (hit distribution, multipliers, chains).
+   * @param {Object} servant - Core servant entity data.
+   * @param {Object} buffs - Applied active buffs.
+   * @param {Object} g - Global state parameters.
+   * @param {Object} chainProps - Analysis returned from analyzeChain.
+   * @param {CardLoopResult} priorResult - Inherited results carrying over HP and stats.
+   * @returns {CardLoopResult} Fully simulated Extra Attack parameters merged with history.
+   */
   processExtraAttack(servant, buffs, g, chainProps, priorResult) {
     let result = new CardLoopResult(priorResult.hpForMaxRoll);
     result.hpForMinRoll = priorResult.hpForMinRoll;
@@ -1633,6 +1747,16 @@ export const CalculationEngine = {
     return result;
   },
 
+  /**
+   * Computes the raw, un-randomized damage value of a single card before hit distribution.
+   * @param {Object} servant - Core servant entity data.
+   * @param {Object} buffs - Applied active buffs.
+   * @param {Object} g - Global state parameters.
+   * @param {string} currentCardToken - Type code for the card ('a', 'b', 'q', 'np').
+   * @param {number} actualPosition - Card's array position in sequence.
+   * @param {number} firstCardBonus - Multiplier bonus if present.
+   * @returns {number} Raw mathematical float for total damage before RNG.
+   */
   calculateSingleCardDamage(
     servant,
     buffs,
@@ -1706,6 +1830,20 @@ export const CalculationEngine = {
     );
   },
 
+  /**
+   * A pure math helper that applies FGO's cap logic to buffs and outputs the final theoretical damage.
+   * @param {Object} d - Damage buffs object.
+   * @param {Object} localMods - Card-specific overrides.
+   * @param {boolean} nocap - Bypass bounds flag.
+   * @param {Object} g - Global variables containing ATK info.
+   * @param {number} firstCardBonus - The chained first card mod.
+   * @param {number} cardDamageMultiplier - Base scale factor for the specific card type.
+   * @param {number} positionMultiplier - Multiplier based on card ordering.
+   * @param {number} currentFouPawAttack - Any added Fou Paw raw attack.
+   * @param {boolean} isCrit - If calculation factors in crits.
+   * @param {string} cardType - Identifying string token for color buffs.
+   * @returns {number} Final uncapped/capped damage number output.
+   */
   applyCapsAndGetFinalDamage(
     d,
     localMods,
@@ -1876,6 +2014,15 @@ export const CalculationEngine = {
     );
   },
 
+  /**
+   * Computes the raw damage specifically for an Extra Attack, accounting for Brave Chain bonuses.
+   * @param {Object} servant - Core servant entity data.
+   * @param {Object} buffs - Applied active buffs.
+   * @param {Object} g - Global state parameters.
+   * @param {boolean} isBraveChainMatch - True if triggering the Brave Extra Modifier.
+   * @param {number} firstCardBonus - The chained first card mod.
+   * @returns {number} The base Extra Attack float damage value.
+   */
   calculateExtraAttackDamage(
     servant,
     buffs,
@@ -1984,6 +2131,17 @@ export const CalculationEngine = {
     );
   },
 
+  /**
+   * Calculates the base NP gauge refunded per single hit of a standard or NP card.
+   * @param {Object} buffs - Applied active buffs.
+   * @param {Object} g - Global state parameters.
+   * @param {Object} localMods - Positional local buffs applied to this card.
+   * @param {string} currentCardToken - The string value of the card.
+   * @param {number} actualPosition - Card's array position in sequence.
+   * @param {number} artsFirstCardBonus - Bonus multiplier applied from starting chain.
+   * @param {boolean} isCrit - Modifies base refund if a critical strike.
+   * @returns {number} Pre-overkill, raw single hit NP return decimal.
+   */
   calculateSingleHitRefund(
     buffs,
     g,
@@ -2098,6 +2256,15 @@ export const CalculationEngine = {
     );
   },
 
+  /**
+   * Calculates the base NP gauge refunded per single hit of an Extra Attack.
+   * @param {Object} buffs - Applied active buffs.
+   * @param {Object} g - Global state parameters.
+   * @param {Object} localMods - Positional local buffs applied to this card.
+   * @param {boolean} isCrit - If calculation factors in crits.
+   * @param {number} artsFirstCardBonus - Bonus multiplier applied from starting chain.
+   * @returns {number} Pre-overkill, raw Extra hit NP return decimal.
+   */
   calculateExtraHitRefund(buffs, g, localMods, isCrit, artsFirstCardBonus) {
     let nocap = buffs.getFlag("nocap");
     let cardNpValue = EXTRA_CARD_NP_VALUE;
