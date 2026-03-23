@@ -1,5 +1,5 @@
-import { GameDataLoader } from "./GameDataLoader.js";
-import { WaveOrchestrator } from "./WaveOrchestrator.js";
+import {GameDataLoader} from "./GameDataLoader.js";
+import {WaveOrchestrator} from "./WaveOrchestrator.js";
 
 /**
  * @file main.js
@@ -68,7 +68,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // --- Initialization sequence ---
   const sendBtn = document.getElementById("sendBtn");
-  
+
   try {
     await GameDataLoader.initialize();
     calcInput.disabled = false;
@@ -103,7 +103,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // --- Input Handling ---
-  
+
   // Auto-resize input area
   calcInput.addEventListener("input", function () {
     this.style.height = "auto";
@@ -163,7 +163,7 @@ document.addEventListener("DOMContentLoaded", async () => {
    */
   function getTimeString() {
     const now = new Date();
-    return now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return now.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
   }
 
   /**
@@ -193,7 +193,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     scrollToBottom();
 
     if (save) {
-      history.push({ type: "bot", text, isError, time: msgTime });
+      history.push({type: "bot", text, isError, time: msgTime});
       saveState();
     }
   }
@@ -244,7 +244,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     scrollToBottom();
 
     if (save) {
-      history.push({ type: "user", text, time: msgTime });
+      history.push({type: "user", text, time: msgTime});
       saveState();
     }
   }
@@ -269,10 +269,33 @@ document.addEventListener("DOMContentLoaded", async () => {
     /** Resolves Atlas Academy class icon URLs based on string names. */
     const getClassIconUrl = (cls) => {
       const idMap = {
-        saber: 1, archer: 2, lancer: 3, rider: 4, caster: 5, assassin: 6, berserker: 7, shielder: 8,
-        ruler: 9, alterego: 10, alteregokiara: 10, avenger: 11, mooncancer: 23, mooncancerciel: 23, foreigner: 25,
-        pretender: 28, beast: 33, beastdraco: 33, beasteresh: 33, beastolga: 33, beast1: 34, beast1lost: 34,
-        beast2: 34, beast3r: 34, beast3l: 34, beast4: 34, beast6: 34,
+        saber: 1,
+        archer: 2,
+        lancer: 3,
+        rider: 4,
+        caster: 5,
+        assassin: 6,
+        berserker: 7,
+        shielder: 8,
+        ruler: 9,
+        alterego: 10,
+        alteregokiara: 10,
+        avenger: 11,
+        mooncancer: 23,
+        mooncancerciel: 23,
+        foreigner: 25,
+        pretender: 28,
+        beast: 33,
+        beastdraco: 33,
+        beasteresh: 33,
+        beastolga: 33,
+        beast1: 34,
+        beast1lost: 34,
+        beast2: 34,
+        beast3r: 34,
+        beast3l: 34,
+        beast4: 34,
+        beast6: 34,
       };
 
       const id = idMap[cls?.toLowerCase()] || 97;
@@ -400,6 +423,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                             </div>
                             
                             <div class="field" style="margin-top: 8px;">
+                                <div class="field-name">Advantages & Bonuses</div>
+                                <div class="field-value e-adv" style="font-size: 0.85rem;"></div>
+                            </div>
+
+                            <div class="field" style="margin-top: 8px;">
                                 <div class="field-name">Active Buffs</div>
                                 <div class="field-value e-buffs" style="column-count: 2; column-gap: 16px; font-size: 0.8rem; line-height: 1.4;"></div>
                             </div>
@@ -435,6 +463,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const titleEl = msgDiv.querySelector(".embed-title");
     const subEl = msgDiv.querySelector(".embed-subtitle");
     const metaEl = msgDiv.querySelector(".e-meta");
+    const advEl = msgDiv.querySelector(".e-adv");
     const thumbEl = msgDiv.querySelector(".embed-thumbnail");
 
     const summaryContainer = msgDiv.querySelector(".summary-container");
@@ -458,6 +487,36 @@ document.addEventListener("DOMContentLoaded", async () => {
       return (
         `<strong>Lv:</strong> ${w.level} | <strong>NP:</strong> ${w.npLevel} | <strong>NP Dmg:</strong> ${w.npDamageMod}%<br>` +
         `<strong>Atk:</strong> ${Math.floor(w.baseAtk)} | <strong>Fou:</strong> ${w.fou} | <strong>Fou Paw:</strong> ${w.fouPaw} | <strong>CE:</strong> ${w.ce}`
+      );
+    };
+
+    const formatAdvantages = (w) => {
+      const adv = w.snapshot.advantages;
+      const props = w.data.chainProps;
+
+      let bonuses = [];
+      if (props.firstCardBusterBonus > 0) {
+        bonuses.push(
+          `<img src="./assets/buster.png" style="width: 18px; height: 18px; vertical-align: middle; margin-right: 4px;" alt="Buster Bonus" title="Buster First Card Bonus (Damage)">`,
+        );
+      }
+      if (props.firstCardArtsBonus > 0) {
+        bonuses.push(
+          `<img src="./assets/arts.png" style="width: 18px; height: 18px; vertical-align: middle; margin-right: 4px;" alt="Arts Bonus" title="Arts First Card Bonus (NP Gain)">`,
+        );
+      }
+      if (props.firstCardQuickBonus > 0) {
+        bonuses.push(
+          `<img src="./assets/quick.png" style="width: 18px; height: 18px; vertical-align: middle; margin-right: 4px;" alt="Quick Bonus" title="Quick First Card Bonus (Star Gen)">`,
+        );
+      }
+
+      const bonusStr = bonuses.length > 0 ? bonuses.join("") : "None";
+
+      return (
+        `<strong>Class Adv:</strong> ${adv.classAdvantageMultiplier}x<br>` +
+        `<strong>Attribute Adv:</strong> ${adv.attributeMultiplier}x<br>` +
+        `<strong>First Card Bonus:</strong> ${bonusStr}`
       );
     };
 
@@ -537,6 +596,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         titleEl.innerText = `Calculation: ${wave.servantName} [${capitalize(wave.servantClass)}]`;
         subEl.innerHTML = `Wave ${waveIndex + 1} / ${waves.length} • Chain: ${getColoredChain(wave.chain)}`;
         metaEl.innerHTML = formatMeta(wave);
+        advEl.innerHTML = formatAdvantages(wave);
         thumbEl.src = wave.servantLink;
 
         buffsEl.innerHTML = formatBuffs(wave.snapshot);
@@ -657,7 +717,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     /**
-     * Updates the UI to show a new wave and anchors the scroll position 
+     * Updates the UI to show a new wave and anchors the scroll position
      * to prevent sudden jumps in the chat log.
      * @param {number} newIndex - Target page index.
      * @param {HTMLElement} clickedBtn - The button used to trigger the change.
@@ -698,7 +758,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     scrollToBottom();
 
     if (save) {
-      history.push({ type: "embed", waves, time: msgTime });
+      history.push({type: "embed", waves, time: msgTime});
       saveState();
     }
   }
