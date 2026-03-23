@@ -458,9 +458,11 @@ html {
     border-color: #111214 transparent transparent transparent;
 }
 
-/* Show the tooltip when hovering (desktop) or focusing (mobile tap) */
+/* Show the tooltip when hovering (desktop) or focusing/tapping (mobile) */
 .tooltip-container:hover .custom-tooltip,
-.tooltip-container:focus .custom-tooltip {
+.tooltip-container:focus .custom-tooltip,
+.tooltip-container:focus-within .custom-tooltip,
+.tooltip-container:active .custom-tooltip {
     opacity: 1;
     visibility: visible;
 }
