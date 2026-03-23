@@ -10,7 +10,7 @@
 
 <body>
     <div class="app-container">
-        
+
         <div class="chat-header">
             <div class="header-content">
                 <div class="channel-title">
@@ -50,30 +50,97 @@
     </div>
 
     <div id="helpModal" class="modal-overlay" style="display: none;">
-        <div class="modal-content">
+        <div class="modal-content" style="max-height: 80vh; overflow-y: auto;">
             <div class="modal-header">
                 <h2>Command Reference</h2>
                 <button id="closeModalBtn" class="close-btn">&times;</button>
             </div>
             <div class="modal-body">
-                <p>Type commands separated by spaces.<br><em>Example: <code>nero a44 am30 150000 lancer</code></em></p>
+                <p>Type commands separated by spaces. If the buff is negative (debuff) add minus sign <code>-</code>
+                    before the number<br>
+                    <em>Example: <code>nero a44 am30 d-20 150000 lancer</code></em>
+                </p>
+
+                <strong>Servant Stats</strong>
                 <ul>
-                    <li><strong>Servant:</strong> Name (<code>nero</code>) or ID (<code>id1</code>)</li>
-                    <li><strong>Cards:</strong> <code>a1</code>, <code>b2crit</code>, <code>q3</code>, <code>a44</code>
-                        (NP), <code>ex</code></li>
-                    <li><strong>Enemy:</strong> HP (<code>100000</code>) and Class (<code>lancer</code>,
-                        <code>beast1</code>)
+                    <li>Name (<code>nero</code>) or ID (<code>5</code>)</li>
+                    <li><code>np</code>+<code>num</code>: servant's np level (default: <code>np5</code>)</li>
+                    <li><code>lv/lvl/l</code>+<code>num</code>: servant's level (default: highest non-grail level)</li>
+                    <li><code>f/fou</code>+<code>num</code>: servant's fou attack stat (default: <code>f1000</code>)
                     </li>
-                    <li><strong>Stats:</strong> <code>np5</code>, <code>fou2000</code>, <code>ce1000</code>,
-                        <code>paw500</code>
-                    </li>
-                    <li><strong>Core Buffs:</strong> <code>atk30</code>, <code>def-20</code>, <code>arts50</code>,
-                        <code>np30</code>
-                    </li>
-                    <li><strong>Other Buffs:</strong> <code>power20</code>, <code>crit50</code>, <code>flat500</code>,
-                        <code>se150</code> (Super Effective)
-                    </li>
+                    <li><code>fp/paw</code>+<code>num</code>: servant's fou paw attack stat</li>
+                    <li><code>ce/c</code>+<code>num</code>: ce's attack stat</li>
                 </ul>
+
+                <strong>Core Buffs</strong>
+                <ul>
+                    <li><code>a/atk</code>+<code>num</code>: attack buff/debuff</li>
+                    <li><code>d/def</code>+<code>num</code>: defence buff/debuff (on the enemy)</li>
+                    <li><code>m/cm</code>+<code>num</code>: generic card mod (no extra)</li>
+                    <li><code>bm/am/qm/em</code>+<code>num</code>: card-specific mod
+                        (buster/arts/quick/extra)</li>
+                    <li><code>n/npm</code>+<code>num</code>: np damage mod</li>
+                    <li><code>npp/ns</code>+<code>num</code>: np damage boost (Oberon's skill 3)</li>
+                    <li><code>p/pmod</code>+<code>num</code>: power mod</li>
+                    <li><code>cd</code>+<code>num</code>: crit damage</li>
+                    <li><code>bcd/acd/qcd</code>+<code>num</code>: card-specific crit damage</li>
+                    <li><code>se/semod</code>+<code>num</code>: super effective modifier (Draco's servant extra damage)
+                    </li>
+                    <li><code>sam/spe</code>+<code>num</code>: special attack</li>
+                    <li><code>sdm</code>+<code>num</code>: special defence (on the enemy)</li>
+                    <li><code>ng/npgen</code>+<code>num</code>: np gain</li>
+                    <li><code>sg/stargen</code>+<code>num</code>: star generation</li>
+                    <li><code>fd/dmg</code>+<code>num</code>: flat damage</li>
+                </ul>
+
+                <strong>Targeted Buffs</strong>
+                <ul>
+                    <li><code>card1 / card2 / card3 / card4</code>: Applies any following buffs ONLY to this specific
+                        card in the chain (e.g., <code>card1 am30 card3 bm50</code>).</li>
+                </ul>
+                <strong>Other Buffs & Flags</strong>
+                <ul>
+                    <li><code>cp</code>+<code>num</code>: card-specific strength mod (no extra)</li>
+                    <li><code>ap/bp/qp/ep</code>+<code>num</code>: card-specific strength mod</li>
+                    <li><code>bng/ang/qng</code>+<code>num</code>: card-specific np gain</li>
+                    <li><code>bsg/asg/qsg</code>+<code>num</code>: card-specific star generation</li>
+                    <li><code>fr/fg</code>+<code>num</code>: flat np refund</li>
+                    <li><code>fs/fst</code>+<code>num</code>: flat star generation</li>
+                    <li><code>crit</code>: force critical hits on face cards</li>
+                    <li><code>oc</code>+<code>num</code>: overcharge level for servants that use it (e.g. Gong)
+                        (default: <code>oc1</code>)</li>
+                    <li><code>bf/af/qf</code>: forces Buster/Arts/Quick first-card bonus</li>
+                    <li><code>nobf</code>: removes Buster first-card bonus</li>
+                    <li><code>bc</code>: forces Buster Chain modifier</li>
+                    <li><code>mc/mighty</code>: forces Mighty Chain modifier</li>
+                    <li><code>hp/ehp</code>+<code>num</code>: set enemy HP for overkill/success calculations</li>
+                </ul>
+
+                <strong>Macros</strong>
+                <ul>
+                    <li><code>super</code>: sets <code>lv100 f2000</code></li>
+                    <li><code>hyper</code>: sets <code>lv120 f2000</code></li>
+                    <li><code>cs</code>:applies maxed Class Score passive buffs</li>
+                    <li><code>grand</code>:applies <code>ce1000</code> to mimic grand status</li>
+                    <li><code>sbg</code>: applies <code>ce2400 n80</code></li>
+                    <li><code>sversus</code>: applies <code>ce1000 p100</code></li>
+                    <li><code>svictor</code>: applies <code>ce2400 bm15 cd25</code></li>
+                    <li><code>sending</code>: applies <code>ce2400 am15 cd25</code></li>
+                </ul>
+                <strong>Overrides</strong>
+                <ul>
+                    <li><code>ta</code>+<code>num</code>: overrides total attack stat (ignores base atk/fou/ce)</li>
+                    <li><code>npo/npv</code>+<code>num</code>: overrides NP damage percentage</li>
+                    <li><code>cao</code>+<code>num</code>: overrides class advantage</li>
+                    <li><code>aao</code>+<code>num</code>: overrides attribute advantage</li>
+                    <li><code>cmo</code>+<code>num</code>: overrides class attack modifier</li>
+                    <li><code>rng</code>+<code>num</code>: overrides RNG multiplier (from 0.9 to 1.099)</li>
+                    <li><code>ff</code>+<code>num</code>: hit count multiplier (e.g., Musashi's Fifth Force)</li>
+                    <li><code>ok</code>: forces overkill on all hits</li>
+                    <li><code>reducedhp</code>: resets overkill calculation</li>
+                    <li><code>nocap</code>: disables buff limits</li>
+                </ul>
+
             </div>
         </div>
     </div>
