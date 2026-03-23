@@ -11,12 +11,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   const calcInput = document.getElementById("calcInput");
   const chatContainer = document.getElementById("chatContainer");
 
-  // --- Avatar Assets ---
+  // Avatar Assets
   const BOT_AVATAR = "./assets/wickedNero.png";
   const USER_AVATAR =
     "https://static.atlasacademy.io/JP/MasterFace/equip00441.png";
 
-  // --- History Management ---
+  // History Management
   let history = JSON.parse(localStorage.getItem("fgoCalcHistory")) || [];
 
   /**
@@ -30,7 +30,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     localStorage.setItem("fgoCalcHistory", JSON.stringify(history));
   }
 
-  // --- Modal & UI Action Binding ---
+  // Modal & UI Action Binding
   const helpBtn = document.getElementById("helpBtn");
   const helpModal = document.getElementById("helpModal");
   const closeModalBtn = document.getElementById("closeModalBtn");
@@ -66,7 +66,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // --- Initialization sequence ---
+  // Initialization sequence
   const sendBtn = document.getElementById("sendBtn");
 
   try {
@@ -102,7 +102,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     );
   }
 
-  // --- Input Handling ---
+  // Input Handling
 
   // Auto-resize input area
   calcInput.addEventListener("input", function () {
@@ -148,7 +148,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     handleSend();
   });
 
-  // --- UI Helpers ---
+  // UI Helpers
 
   /**
    * Forces the chat window to scroll to the most recent message.
@@ -249,7 +249,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // --- Embed Generator ---
+  // Embed Generator
 
   /**
    * Constructs and injects a Discord-style interactive embed showing calculation results.
