@@ -682,9 +682,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <div style="display: flex; align-items: center; flex-wrap: wrap;">
                     <span style="display: inline-block; width: 24px;"><strong>[${card.position}]</strong></span> 
                     
-                    <span style="display: flex; align-items: center; margin-right: 6px; outline: none;" class="${containerClass}" ${tabIndex}>
-                        <img src="${cardIconUrl}" style="width: 16px; height: 16px; ${cursorStyle}" alt="Card">
-                        ${tooltipHtml} </span>
+                    <span style="display: flex; align-items: center; margin-right: 6px; outline: none; ${cursorStyle}" class="${containerClass}" ${tabIndex}>
+                        <img src="${cardIconUrl}" style="width: 16px; height: 16px;" alt="Card">
+                        ${tooltipHtml} 
+                    </span>
                     
                     <span style="margin-left: 2px;"><strong>${Math.floor(card.avgDamage).toLocaleString()}</strong> (${Math.floor(card.minDamage).toLocaleString()} - ${Math.floor(card.maxDamage).toLocaleString()})</span>&nbsp;${critTag}
                 </div>
