@@ -101,7 +101,7 @@ export const InputParser = {
     for (let i = tokens.length - 1; i >= 0; i--) {
       if (/^[npabqex]+$/.test(tokens[i])) return tokens[i];
     }
-    // FIX: Default to 'np' if no chain is found to prevent undefined tokens
+    // Default to 'np' if no chain is found to prevent undefined tokens
     return "np";
   },
 
