@@ -99,6 +99,7 @@ export const WaveOrchestrator = {
         str: strVal,
         snapshot: snapshotInfo.snapshot,
         data: fullResult,
+        buffs: totalBuffs
       });
 
       if (fullResult && fullResult.loopResult) {

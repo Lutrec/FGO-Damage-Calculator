@@ -124,7 +124,7 @@ html {
 
 .msg-content {
   flex: 1;
-  overflow: hidden;
+  min-width: 0;
 }
 
 .msg-header {
@@ -415,4 +415,62 @@ html {
     height: 32px;
     left: 12px;
   }
+}
+
+/* --- CUSTOM CARD TOOLTIPS --- */
+.tooltip-container {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.custom-tooltip {
+    position: absolute;
+    bottom: calc(100% + 8px); /* Position it slightly above the card icon */
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #111214; /* Dark Discord UI color */
+    color: #dbdee1;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    white-space: nowrap; /* Prevent text from awkwardly wrapping */
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+    border: 1px solid #1e1f22;
+    z-index: 100;
+    
+    /* Hide by default with a smooth fade */
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+    pointer-events: none; /* Prevents the tooltip itself from interfering with mouse hover */
+}
+
+/* The little triangle arrow pointing down */
+.custom-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: #111214 transparent transparent transparent;
+}
+
+/* Show the tooltip when hovering (desktop) or focusing (mobile tap) */
+.tooltip-container:hover .custom-tooltip,
+.tooltip-container:focus .custom-tooltip {
+    opacity: 1;
+    visibility: visible;
+}
+
+.tooltip-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.tooltip-row:last-child {
+    margin-bottom: 0;
 }

@@ -520,6 +520,55 @@ document.addEventListener("DOMContentLoaded", async () => {
       );
     };
 
+    /** Generates plain text tooltips for card-specific targeted buffs. */
+    const getCardTooltipHtml = (mods, flags) => {
+      if (!mods && !flags) return "";
+
+      const modMap = {
+        a: {id: 300, name: "ATK"},
+        d: {id: 301, name: "DEF"},
+        am: {id: 313, name: "Arts Mod"},
+        bm: {id: 314, name: "Buster Mod"},
+        qm: {id: 312, name: "Quick Mod"},
+        em: {id: 388, name: "Extra Mod"},
+        n: {id: 310, name: "NP Dmg"},
+        p: {id: 302, name: "Power Mod"},
+        cd: {id: 324, name: "Crit Dmg"},
+        sam: {id: 359, name: "Sp. ATK"},
+        sdm: {id: 334, name: "Sp. DEF"},
+        se: {id: 336, name: "SE Mod"},
+        ng: {id: 303, name: "NP Gain"},
+        sg: {id: 321, name: "Star Gen"},
+        fd: {id: 302, name: "Flat Dmg"},
+      };
+
+      let buffStrings = [];
+
+      if (mods) {
+        for (const [key, value] of Object.entries(mods)) {
+          if (value !== 0 && modMap[key]) {
+            let unit = key === "fd" ? "" : "%";
+            buffStrings.push(
+              `<div class="tooltip-row">${getBuffIcon(modMap[key].id)} <strong>${modMap[key].name}:</strong>&nbsp;${value}${unit}</div>`,
+            );
+          }
+        }
+      }
+
+      if (flags && flags.ok) {
+        buffStrings.push(
+          `<div class="tooltip-row"><span style="margin-right: 6px; font-weight: bold; color: #5865f2;">⚡</span> <strong>Force Overkill</strong></div>`,
+        );
+      }
+
+      if (buffStrings.length === 0) return "";
+
+      return `<div class="custom-tooltip">
+                <div style="font-weight: bold; margin-bottom: 6px; color: #f2f3f5; border-bottom: 1px solid #3f4147; padding-bottom: 4px;">Targeted Buffs</div>
+                ${buffStrings.join("")}
+              </div>`;
+    };
+
     /**
      * Renders a specific page/wave into the embed.
      * Index 0 acts as a summary page if `isMultiWave` is true.
@@ -603,6 +652,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         detailsEl.innerHTML = "";
         data.perCardResults.forEach((card) => {
+          const localMods = wave.buffs?.cardMods?.[card.position];
+          const localFlags = wave.buffs?.cardFlags?.[card.position];
+
+          // Generate the new HTML tooltip
+          const tooltipHtml = getCardTooltipHtml(localMods, localFlags);
+          const hasTooltip = tooltipHtml !== "";
+          const containerClass = hasTooltip ? "tooltip-container" : "";
+          const cursorStyle = hasTooltip ? "cursor: help;" : "";
+          const tabIndex = hasTooltip ? `tabindex="0"` : "";
+
           let cardIconUrl =
             card.cardToken === "A"
               ? "./assets/arts.png"
@@ -622,9 +681,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             <div style="margin-bottom: 8px;">
                 <div style="display: flex; align-items: center; flex-wrap: wrap;">
                     <span style="display: inline-block; width: 24px;"><strong>[${card.position}]</strong></span> 
-                    <span style="display: flex; align-items: center; margin-right: 6px;">
-                        <img src="${cardIconUrl}" style="width: 16px; height: 16px;" alt="Card">
-                    </span>
+                    
+                    <span style="display: flex; align-items: center; margin-right: 6px; outline: none;" class="${containerClass}" ${tabIndex}>
+                        <img src="${cardIconUrl}" style="width: 16px; height: 16px; ${cursorStyle}" alt="Card">
+                        ${tooltipHtml} </span>
+                    
                     <span style="margin-left: 2px;"><strong>${Math.floor(card.avgDamage).toLocaleString()}</strong> (${Math.floor(card.minDamage).toLocaleString()} - ${Math.floor(card.maxDamage).toLocaleString()})</span>&nbsp;${critTag}
                 </div>
                 
