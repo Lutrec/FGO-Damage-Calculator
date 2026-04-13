@@ -7,21 +7,20 @@ import {WaveOrchestrator} from "./WaveOrchestrator.js";
  * Manages DOM manipulation, parses inputs via the Calculation Engine, caches chat history
  * via localStorage, and generates interactive Discord-style HTML embeds.
  */
+
 document.addEventListener("DOMContentLoaded", async () => {
   const calcInput = document.getElementById("calcInput");
   const chatContainer = document.getElementById("chatContainer");
 
-  // Avatar Assets
   const BOT_AVATAR = "./assets/wickedNero.png";
   const USER_AVATAR =
     "https://static.atlasacademy.io/JP/MasterFace/equip00441.png";
 
-  // History Management
   let history = JSON.parse(localStorage.getItem("fgoCalcHistory")) || [];
 
   /**
-   * Saves the current chat history to localStorage.
-   * Retains only the last 100 items to prevent DOM bloat and storage crashes.
+   * Flushes operational memory to persistent localized storage tracking past operations.
+   * Restricts queue to 100 historical instances mitigating execution drag.
    */
   function saveState() {
     if (history.length > 100) {
@@ -30,7 +29,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     localStorage.setItem("fgoCalcHistory", JSON.stringify(history));
   }
 
-  // Modal & UI Action Binding
   const helpBtn = document.getElementById("helpBtn");
   const helpModal = document.getElementById("helpModal");
   const closeModalBtn = document.getElementById("closeModalBtn");
@@ -42,7 +40,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       history = [];
       chatContainer.innerHTML = "";
       calcInput.style.height = "auto";
-
       appendBotMessage(
         "Chat history cleared. Ready for new calculations!",
         false,
@@ -66,7 +63,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Initialization sequence
   const sendBtn = document.getElementById("sendBtn");
 
   try {
@@ -75,7 +71,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     sendBtn.disabled = false;
     calcInput.placeholder = "Message #fgo-calculator (e.g., nero a44 am30)";
 
-    // Render previous history
     history.forEach((item) => {
       if (item.type === "bot")
         appendBotMessage(item.text, item.isError, item.time, false);
@@ -85,7 +80,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         appendCalculationEmbed(item.waves, item.time, false);
     });
 
-    // Welcome message (prevented from saving to history)
     appendBotMessage(
       "Data loaded successfully! Type your command below and press Enter.",
       false,
@@ -102,13 +96,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     );
   }
 
-  // Input Handling
-
-  // Auto-resize input area
   calcInput.addEventListener("input", function () {
     this.style.height = "auto";
     this.style.height = this.scrollHeight + "px";
-
     if (this.scrollHeight > 200) {
       this.style.overflowY = "auto";
     } else {
@@ -117,11 +107,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   /**
-   * Reads input, runs the battle simulation orchestrator, and triggers UI updates.
+   * Scrapes DOM, executes operational pathways, evaluates commands, and renders responses.
+   * Hooks explicit intercepts (like `help`) circumventing logic errors prior to evaluation.
    */
   function handleSend() {
     const input = calcInput.value.trim();
     if (!input) return;
+
+    if (input.toLowerCase() === "help") {
+      helpModal.style.display = "flex";
+      calcInput.value = "";
+      calcInput.style.height = "auto";
+      return;
+    }
 
     appendUserMessage(input);
     calcInput.value = "";
@@ -148,18 +146,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     handleSend();
   });
 
-  // UI Helpers
-
   /**
-   * Forces the chat window to scroll to the most recent message.
+   * Tracks newly attached elements securing constant focal plane positioning.
    */
   function scrollToBottom() {
     chatContainer.scrollTop = chatContainer.scrollHeight;
   }
 
   /**
-   * Retrieves the current local time formatted as HH:MM AM/PM.
-   * @returns {string} Formatted time string.
+   * Formats execution timestamps.
+   * @returns {string} Explicit timestamp formatted as "HH:MM AM/PM".
    */
   function getTimeString() {
     const now = new Date();
@@ -167,11 +163,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   /**
-   * Renders a system or error message disguised as a Bot chat entry.
-   * @param {string} text - The message to display.
-   * @param {boolean} [isError=false] - If true, styles the message as an error.
-   * @param {string|null} [time=null] - Optional forced timestamp.
-   * @param {boolean} [save=true] - Whether to persist this message to history.
+   * Dynamically mounts HTML text sequences masquerading as autonomous responses.
+   * @param {string} text - System strings formatting internal logic issues.
+   * @param {boolean} [isError=false] - Enables explicit styling parameters identifying crashes.
+   * @param {string|null} [time=null] - Pre-encoded timestamp overrides if populated via cache.
+   * @param {boolean} [save=true] - Appends tracking sequence within localized persistence.
    */
   function appendBotMessage(text, isError = false, time = null, save = true) {
     const msgTime = time || getTimeString();
@@ -199,10 +195,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   /**
-   * Renders a user command entry in the chat container.
-   * @param {string} text - The raw input command.
-   * @param {string|null} [time=null] - Optional forced timestamp.
-   * @param {boolean} [save=true] - Whether to persist this message to history.
+   * Dynamically mirrors typed directives mimicking asynchronous network chat.
+   * @param {string} text - The input.
+   * @param {string|null} [time=null] - Overridden historical timeline tags.
+   * @param {boolean} [save=true] - Tracks interaction within log boundaries.
    */
   function appendUserMessage(text, time = null, save = true) {
     const msgTime = time || getTimeString();
@@ -249,14 +245,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // Embed Generator
-
   /**
-   * Constructs and injects a Discord-style interactive embed showing calculation results.
-   * Supports pagination for multi-wave calculations and dynamic expanding detailed views.
-   * @param {Array<Object>} waves - The output data array from the WaveOrchestrator.
-   * @param {string|null} [time=null] - Optional forced timestamp.
-   * @param {boolean} [save=true] - Whether to persist this embed to history.
+   * Emulates Discord UI structural constraints rendering analytical metric arrays mapping FGO evaluations.
+   * Maps paginated components toggling distinct interactive views over persistent mathematical representations.
+   * @param {Object[]} waves - Abstract data constructs passed off by execution engines.
+   * @param {string|null} [time=null] - Encoded tracking limits.
+   * @param {boolean} [save=true] - Commits configuration blocks securing restoration logic mapping.
    */
   function appendCalculationEmbed(waves, time = null, save = true) {
     const msgTime = time || getTimeString();
@@ -266,7 +260,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     const capitalize = (s) =>
       s && s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 
-    /** Resolves Atlas Academy class icon URLs based on string names. */
     const getClassIconUrl = (cls) => {
       const idMap = {
         saber: 1,
@@ -297,29 +290,24 @@ document.addEventListener("DOMContentLoaded", async () => {
         beast4: 34,
         beast6: 34,
       };
-
       const id = idMap[cls?.toLowerCase()] || 97;
       return `https://static.atlasacademy.io/JP/ClassIcons/class3_${id}.png`;
     };
 
     const getBuffIcon = (id) =>
       `<img src="https://static.atlasacademy.io/JP/BuffIcons/bufficon_${id}.png" style="width: 16px; height: 16px; margin-right: 6px;" alt="">`;
-
     const getSkillIcon = (id) =>
       `<img src="https://static.atlasacademy.io/JP/SkillIcons/skill_${id}.png" style="width: 16px; height: 16px; margin-right: 6px;" alt="">`;
 
-    /** Converts a raw card chain string into a string of HTML image icons. */
     const getColoredChain = (chain) => {
       if (!chain) return "";
-
       const tokens = chain.toUpperCase().match(/(NP|EX|E|B|A|Q|X)/g);
       if (!tokens) return chain.toUpperCase();
 
       return tokens
         .map((token) => {
-          if (token === "X") {
+          if (token === "X")
             return `<span style="font-weight: bold; vertical-align: middle; margin: 0 2px;">${token}</span>`;
-          }
 
           let iconUrl = "";
           if (token === "B") iconUrl = "./assets/buster.png";
@@ -334,7 +322,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         .join("");
     };
 
-    /** Formats active damage and NP modifiers into HTML string rows. */
     const formatBuffs = (snapshot) => {
       const d = snapshot.damageMods;
       const n = snapshot.npGainMods;
@@ -365,7 +352,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       );
     };
 
-    /** Formats the enemy target block, hiding irrelevant attributes. */
     const buildEnemyHtml = (snapshot) => {
       const enemyClass = snapshot.enemy.enemyClass;
       const enemyAttr = snapshot.enemy.enemyAttribute;
@@ -379,7 +365,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         ? "https://static.atlasacademy.io/JP/ClassIcons/class3_97.png"
         : getClassIconUrl(enemyClass);
       const attrText = isAttrOmitted ? "" : `[${capitalize(enemyAttr)}] `;
-
       const hpText = isHpOmitted
         ? ""
         : `<span style="margin-left: 6px;"><strong>HP:</strong> ${Math.floor(enemyHp).toLocaleString()}</span>`;
@@ -393,7 +378,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       `;
     };
 
-    // Construct Base Embed Wrapper
     const msgDiv = document.createElement("div");
     msgDiv.className = "message";
     if (save) msgDiv.classList.add("animate-message");
@@ -455,7 +439,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                         <button class="btn btn-next">▶</button>
                         <button class="btn btn-last">⏭</button>
                     </div>
-                    
                 </div>
             </div>
         `;
@@ -495,21 +478,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       const props = w.data.chainProps;
 
       let bonuses = [];
-      if (props.firstCardBusterBonus > 0) {
+      if (props.firstCardBusterBonus > 0)
         bonuses.push(
           `<img src="./assets/buster.png" style="width: 18px; height: 18px; vertical-align: middle; margin-right: 4px;" alt="Buster Bonus" title="Buster First Card Bonus (Damage)">`,
         );
-      }
-      if (props.firstCardArtsBonus > 0) {
+      if (props.firstCardArtsBonus > 0)
         bonuses.push(
           `<img src="./assets/arts.png" style="width: 18px; height: 18px; vertical-align: middle; margin-right: 4px;" alt="Arts Bonus" title="Arts First Card Bonus (NP Gain)">`,
         );
-      }
-      if (props.firstCardQuickBonus > 0) {
+      if (props.firstCardQuickBonus > 0)
         bonuses.push(
           `<img src="./assets/quick.png" style="width: 18px; height: 18px; vertical-align: middle; margin-right: 4px;" alt="Quick Bonus" title="Quick First Card Bonus (Star Gen)">`,
         );
-      }
 
       const bonusStr = bonuses.length > 0 ? bonuses.join("") : "None";
 
@@ -520,7 +500,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       );
     };
 
-    /** Generates plain text tooltips for card-specific targeted buffs. */
     const getCardTooltipHtml = (mods, flags) => {
       if (!mods && !flags) return "";
 
@@ -569,11 +548,6 @@ document.addEventListener("DOMContentLoaded", async () => {
               </div>`;
     };
 
-    /**
-     * Renders a specific page/wave into the embed.
-     * Index 0 acts as a summary page if `isMultiWave` is true.
-     * @param {number} index - The page index to render.
-     */
     const renderWave = (index) => {
       const isSummaryPage = isMultiWave && index === 0;
 
@@ -611,7 +585,6 @@ document.addEventListener("DOMContentLoaded", async () => {
           const successStr = !isHpOmitted
             ? `<div><strong>Success Chance:</strong> ${d.hpForMinRoll <= 0 ? "100" : (d.successProbability * 100).toFixed(3)}%</div>`
             : "";
-
           const enemyInfoHtml = buildEnemyHtml(w.snapshot);
 
           summaryHTML += `
@@ -655,7 +628,6 @@ document.addEventListener("DOMContentLoaded", async () => {
           const localMods = wave.buffs?.cardMods?.[card.position];
           const localFlags = wave.buffs?.cardFlags?.[card.position];
 
-          // Generate the new HTML tooltip
           const tooltipHtml = getCardTooltipHtml(localMods, localFlags);
           const hasTooltip = tooltipHtml !== "";
           const containerClass = hasTooltip ? "tooltip-container" : "";
@@ -736,7 +708,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         totalOutputEl.innerHTML = totalOutputHtml;
       }
 
-      // Configure Pagination Buttons
       if (isMultiWave) {
         const maxPages = waves.length;
         btnFirst.style.display =
@@ -757,7 +728,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     };
 
-    // View Toggles
     btnToggle.addEventListener("click", () => {
       const prevButtonY = btnToggle.getBoundingClientRect().top;
 
@@ -778,12 +748,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       chatContainer.scrollTop += newButtonY - prevButtonY;
     });
 
-    /**
-     * Updates the UI to show a new wave and anchors the scroll position
-     * to prevent sudden jumps in the chat log.
-     * @param {number} newIndex - Target page index.
-     * @param {HTMLElement} clickedBtn - The button used to trigger the change.
-     */
     const changeWave = (newIndex, clickedBtn) => {
       const prevY = clickedBtn.getBoundingClientRect().top;
 
@@ -800,21 +764,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     btnFirst.addEventListener("click", () => {
       changeWave(0, btnFirst);
     });
-
     btnPrev.addEventListener("click", () => {
       if (currentWaveIndex > 0) changeWave(currentWaveIndex - 1, btnPrev);
     });
-
     btnNext.addEventListener("click", () => {
       if (currentWaveIndex < maxPages)
         changeWave(currentWaveIndex + 1, btnNext);
     });
-
     btnLast.addEventListener("click", () => {
       changeWave(maxPages, btnLast);
     });
 
-    // Execute first render
     renderWave(currentWaveIndex);
     chatContainer.appendChild(msgDiv);
     scrollToBottom();

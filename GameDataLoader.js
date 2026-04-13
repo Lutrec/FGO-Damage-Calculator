@@ -8,15 +8,14 @@ export const GameDataLoader = {
   ATTRIBUTE_RELATIONS: {},
   CLASS_RELATIONS: {},
   ENEMY_CLASS_MODS: {},
-  BUFF_MACROS: {},
   FLAT_BUFF_MACROS: {},
   SERVANT_MAP: {},
   ALIASES: {},
 
   /**
-   * Initializes the data layer by fetching all required JSON resources concurrently.
-   * Maps internal aliases and nickname associations.
-   * @returns {Promise<void>}
+   * Fetches required JSON configuration bundles sequentially binding alias trees.
+   * Required initiation sequence bridging UI to the mathematical runtime.
+   * @returns {Promise<void>} Resolves upon successful completion of network fetches.
    */
   async initialize() {
     console.log("Loading FGO Data...");
@@ -45,14 +44,15 @@ export const GameDataLoader = {
     this.CLASS_RELATIONS = this.lowercaseNestedKeys(classRel);
     this.ENEMY_CLASS_MODS = this.lowercaseKeys(enemyMods);
 
-    this.BUFF_MACROS = macros;
-    for (const [k, v] of Object.entries(macros))
+    for (const [k, v] of Object.entries(macros)) {
       this.FLAT_BUFF_MACROS[k.toLowerCase()] = v.toLowerCase().split(/\s+/);
+    }
 
     const flatAliases = {};
     for (const [internalKey, aliasList] of Object.entries(aliases)) {
-      for (const alias of aliasList)
+      for (const alias of aliasList) {
         flatAliases[alias.toLowerCase()] = internalKey.toLowerCase();
+      }
     }
     this.ALIASES = flatAliases;
 
@@ -72,6 +72,12 @@ export const GameDataLoader = {
     console.log("Data loaded successfully.");
   },
 
+  /**
+   * Promisifies file IO preventing fatal execution halt over disconnected resources.
+   * @param {string} url - Intended destination file path.
+   * @param {*} fallback - Generic definition instantiated upon critical failure.
+   * @returns {Promise<*>} Retrieved dictionary format matching JSON content.
+   */
   async fetchJson(url, fallback) {
     try {
       const res = await fetch(url);
@@ -83,12 +89,22 @@ export const GameDataLoader = {
     }
   },
 
+  /**
+   * Truncates capitalization ensuring predictable identifier mapping.
+   * @param {Object} obj - Abstract dictionary configuration block.
+   * @returns {Object} Translated block holding exclusive lowercase assignments.
+   */
   lowercaseKeys(obj) {
     const res = {};
     for (const [k, v] of Object.entries(obj)) res[k.toLowerCase()] = v;
     return res;
   },
 
+  /**
+   * Truncates deeply nested strings mapped recursively.
+   * @param {Object} obj - Encapsulated parameter object.
+   * @returns {Object} Translated block normalized recursively.
+   */
   lowercaseNestedKeys(obj) {
     const res = {};
     for (const [k, v] of Object.entries(obj))
@@ -97,9 +113,9 @@ export const GameDataLoader = {
   },
 
   /**
-   * Normalizes raw servant JSON data into a standardized servant object.
-   * @param {Object} data - Raw servant data object.
-   * @returns {Object} Standardized servant record.
+   * Instantiates formatted records capturing mechanical constants relevant to execution scopes.
+   * @param {Object} data - Raw server response capturing Servant constraints.
+   * @returns {Object} Normalized class representation.
    */
   createServantRecord(data) {
     const convertHitDist = (arr) => (arr ? arr.map((x) => x / 100.0) : []);
