@@ -1,77 +1,33 @@
-import {GameDataLoader} from "./GameDataLoader.js";
-
 /**
  * @file CalculationEngine.js
- * The core mathematical engine for the FGO Damage Calculator.
- * Accurately replicates in-game damage, refund, and star generation formulas,
- * including overkill thresholds, positional multipliers, and Monte Carlo probability simulations.
+ * @description The core orchestrator for the FGO Damage Calculator.
+ * Delegates strict mathematical resolution to localized calculator sub-modules.
  */
 
-// --- Game Constants ---
-const BASE_DAMAGE_MULTIPLIER = 0.23;
+import { GameDataLoader } from "./GameDataLoader.js";
+import { DamageCalculator, EXTRA_ATTACK_POSITION, MIN_NP_LEVEL, MAX_NP_LEVEL, DEFAULT_NP_LEVEL } from "./DamageCalculator.js";
+import { RefundCalculator, OVERKILL_MODIFIER, FIRST_CARD_ARTS_BONUS } from "./RefundCalculator.js";
+import { StarGenCalculator, FIRST_CARD_QUICK_BONUS, STAR_GEN_OVERKILL_ADD, STAR_GEN_MAX_CHANCE } from "./StarGenCalculator.js";
+import { ProbabilityCalculator } from "./ProbabilityCalculator.js";
+
 export const DEFAULT_FOU_ATTACK = 1000;
-const BUSTER_CARD_MULTIPLIER = 1.5;
-const QUICK_CARD_MULTIPLIER = 0.8;
-const ARTS_CARD_MULTIPLIER = 1.0;
 const FIRST_CARD_BUSTER_BONUS = 0.5;
-const POSITION_MULTIPLIERS = [0.0, 1.0, 1.2, 1.4];
-const BASE_CRIT_DAMAGE_FACTOR = 2.0;
-const EXTRA_ATTACK_MULTIPLIER = 2.0;
-const BRAVE_CHAIN_EXTRA_MULTIPLIER = 3.5;
-const EXTRA_ATTACK_POSITION = 4;
 const BRAVE_CHAIN_CARD_REQUIREMENT = 3;
 const RNG_MIN_MULTIPLIER = 0.9;
 const RNG_AVG_MULTIPLIER = 1.0;
 const RNG_MAX_MULTIPLIER = 1.099;
-const MIN_NP_LEVEL = 1;
-const MAX_NP_LEVEL = 5;
-const DEFAULT_NP_LEVEL = 5;
-const MIN_STACK_VALUE = 0.0;
-const MIN_POWER_STACK_VALUE = 0.001;
 const BUSTER_CHAIN_MOD = 0.2;
 
-// --- NP Gain Constants ---
-const OVERKILL_MODIFIER = 1.5;
-const ARTS_CARD_NP_VALUE = 3.0;
-const QUICK_CARD_NP_VALUE = 1.0;
-const BUSTER_CARD_NP_VALUE = 0.0;
-const EXTRA_CARD_NP_VALUE = 1.0;
-const FIRST_CARD_ARTS_BONUS = 1.0;
-const NP_POSITION_MULTIPLIERS = [0.0, 1.0, 1.5, 2.0];
+export const ATK_DEF_CARDMOD_UPPER_BOUND = 400;
+export const ATK_DEF_CARDMOD_LOWER_BOUND = -100;
+export const POWERMOD_SPECIALATKMOD_UPPER_BOUND = 1000;
+export const POWERMOD_SPECIALATKMOD_LOWER_BOUND = -100000;
+export const CRITDMG_NPDMG_UPPER_BOUND = 500;
+export const CRITDMG_NPDMG_LOWER_BOUND = -100000;
+export const SPECIALDEFMOD_UPPER_BOUND = 500;
+export const SPECIALDEFMOD_LOWER_BOUND = -100;
 
-// --- Star Gen Constants ---
-const FIRST_CARD_QUICK_BONUS = 20.0;
-const STAR_GEN_CRIT_MODIFIER = 20.0;
-const STAR_GEN_OVERKILL_ADD = 30.0;
-const STAR_GEN_MAX_CHANCE = 300.0;
-const CARD_STAR_VALUES = {
-  a: [0.0, 0.0, 0.0],
-  b: [10.0, 15.0, 20.0],
-  q: [80.0, 130.0, 180.0],
-};
-const EXTRA_CARD_STAR_VALUE = 100.0;
-
-// --- Probability Constants ---
-const MONTE_CARLO_ATTEMPTS = 500000;
-
-// --- Buff Cap Constants ---
-const ATK_DEF_CARDMOD_UPPER_BOUND = 400;
-const ATK_DEF_CARDMOD_LOWER_BOUND = -100;
-const POWERMOD_SPECIALATKMOD_UPPER_BOUND = 1000;
-const POWERMOD_SPECIALATKMOD_LOWER_BOUND = -100000;
-const CRITDMG_NPDMG_UPPER_BOUND = 500;
-const CRITDMG_NPDMG_LOWER_BOUND = -100000;
-const SPECIALDEFMOD_UPPER_BOUND = 500;
-const SPECIALDEFMOD_LOWER_BOUND = -100;
-
-/**
- * Tracks the state of a simulated attack chain, accumulating damage, refund, and star generation.
- */
 class CardLoopResult {
-  /**
-   * Initializes the loop result tracker.
-   * @param {number} initialHp - The starting HP of the target enemy.
-   */
   constructor(initialHp) {
     this.hpForMinRoll = initialHp;
     this.hpForMaxRoll = initialHp;
@@ -93,11 +49,6 @@ class CardLoopResult {
     this.perCardResults = [];
     this.successProbability = 0;
   }
-
-  /**
-   * Merges the metrics of another CardLoopResult into this instance.
-   * @param {CardLoopResult} other - The result object to merge.
-   */
   add(other) {
     this.damagingCardCount += other.damagingCardCount;
     this.totalMinDamage += other.totalMinDamage;
@@ -116,14 +67,6 @@ class CardLoopResult {
   }
 }
 
-/**
- * Validates a buff value against FGO's hard limits and appends warnings if exceeded.
- * @param {number} value - The evaluated buff value.
- * @param {string} name - The display name of the buff.
- * @param {number} lowerBound - The minimum permissible value.
- * @param {number} upperBound - The maximum permissible value.
- * @param {string[]} warnings - Array to collect warning strings.
- */
 function checkBuffCap(value, name, lowerBound, upperBound, warnings) {
   if (value > upperBound || value < lowerBound) {
     warnings.push(`Buff cap reached for: ${name}`);
@@ -136,43 +79,21 @@ function checkBuffCap(value, name, lowerBound, upperBound, warnings) {
  * @param {number} min - The lower limit.
  * @param {number} max - The upper limit.
  * @param {boolean} nocap - Flag indicating whether to bypass constraint logic entirely.
- * @returns {number} The evaluated and potentially capped value.
+ * @returns {number} Evaluated value.
  */
-function applyCap(value, min, max, nocap) {
+export function applyCap(value, min, max, nocap) {
   if (nocap) return value;
   return Math.max(min, Math.min(max, value));
 }
 
-/**
- * Executes a Monte Carlo simulation to evaluate the probability of a lethal blow based on damage spread.
- * @param {number[]} avgCardDamages - Array containing the average damage output for each card in the chain.
- * @param {number} enemyHp - The total HP of the enemy target.
- * @returns {number} A float between 0.0 and 1.0 representing kill probability.
- */
-function calculateSuccessProbability(avgCardDamages, enemyHp) {
-  if (enemyHp >= Number.MAX_SAFE_INTEGER) return 0;
-  const damageNeeded = enemyHp * 1000;
-  let successCount = 0;
-  for (let i = 0; i < MONTE_CARLO_ATTEMPTS; i++) {
-    let totalSimulatedDamage = 0;
-    for (let j = 0; j < avgCardDamages.length; j++) {
-      totalSimulatedDamage += avgCardDamages[j] * (900 + Math.random() * 200);
-    }
-    if (totalSimulatedDamage >= damageNeeded) successCount++;
-  }
-  return successCount / MONTE_CARLO_ATTEMPTS;
-}
-
-/**
- * Primary API interface for executing FGO math logic.
- */
 export const CalculationEngine = {
+  
   /**
    * Computes the entire outcome (damage, refund, stargen) for a given card chain.
-   * @param {Object} servant - The active servant object containing base stats and mechanics.
+   * @param {Object} servant - The active servant object.
    * @param {Object} buffs - Parsed active buffs applied to this specific evaluation.
-   * @param {Object} globalBuffs - Global snapshot state holding enemy and structural modifiers.
-   * @param {string} cardChain - String code representing the card chain (e.g., "npbq").
+   * @param {Object} globalBuffs - Global snapshot state.
+   * @param {string} cardChain - String code representing the card sequence.
    * @returns {Object} A compound object containing the `loopResult` and `chainProps`.
    */
   calculateCardChainDamage(servant, buffs, globalBuffs, cardChain) {
@@ -189,100 +110,52 @@ export const CalculationEngine = {
     let k = 0;
     while (k < effectiveChain.length) {
       cardTokenCount++;
-      k +=
-        k + 1 < effectiveChain.length && effectiveChain.startsWith("np", k)
-          ? 2
-          : 1;
+      k += k + 1 < effectiveChain.length && effectiveChain.startsWith("np", k) ? 2 : 1;
     }
 
-    if (cardTokenCount === 1 && effectiveChain === "e") {
-      isExtraOnlyTest = true;
-    }
+    if (cardTokenCount === 1 && effectiveChain === "e") isExtraOnlyTest = true;
 
     let isSingleCardTest = false;
     let forcedPosition = 0;
-    if (
-      !isExtraOnlyTest &&
-      cardTokenCount === 1 &&
-      effectiveChain !== "e" &&
-      effectiveChain !== "x"
-    ) {
+    if (!isExtraOnlyTest && cardTokenCount === 1 && effectiveChain !== "e" && effectiveChain !== "x") {
       if (buffs.getFlag("second")) forcedPosition = 2;
       else if (buffs.getFlag("third")) forcedPosition = 3;
       isSingleCardTest = true;
     }
 
-    const normalizedChain = effectiveChain.replace(
-      /np/g,
-      globalBuffs.npCardType.charAt(0).toLowerCase(),
-    );
+    const normalizedChain = effectiveChain.replace(/np/g, globalBuffs.npCardType.charAt(0).toLowerCase());
     let primaryCardCount = 0;
     for (const c of normalizedChain) {
       if (c !== "e" && c !== "x") primaryCardCount++;
     }
 
-    if (
-      !effectiveChain ||
-      (primaryCardCount === 0 && !isExtraOnlyTest && !isFallback)
-    ) {
-      console.warn(
-        "Warning: No valid card chain found for this wave. Skipping calculation.",
-      );
+    if (!effectiveChain || (primaryCardCount === 0 && !isExtraOnlyTest && !isFallback)) {
+      console.warn("Warning: No valid card chain found for this wave.");
       return {
         loopResult: new CardLoopResult(0),
         chainProps: {
-          isBraveChain: false,
-          isBraveChainMatch: false,
-          isMightyChain: false,
-          isBusterChain: false,
-          firstCardBusterBonus: 0,
-          firstCardArtsBonus: 0,
-          firstCardQuickBonus: 0,
+          isBraveChain: false, isBraveChainMatch: false, isMightyChain: false, isBusterChain: false,
+          firstCardBusterBonus: 0, firstCardArtsBonus: 0, firstCardQuickBonus: 0,
         },
       };
     }
 
     const chainProps = this.analyzeChain(
-      effectiveChain,
-      normalizedChain,
-      globalBuffs.npCardType,
-      buffs,
-      primaryCardCount,
-      isSingleCardTest,
-      isExtraOnlyTest,
+      effectiveChain, normalizedChain, globalBuffs.npCardType, buffs, primaryCardCount, isSingleCardTest, isExtraOnlyTest
     );
 
     let mainLoopResult = new CardLoopResult(globalBuffs.enemy.enemyHp);
     if (!isExtraOnlyTest) {
-      mainLoopResult = this.processMainCardLoop(
-        servant,
-        buffs,
-        globalBuffs,
-        chainProps,
-        effectiveChain,
-        isSingleCardTest,
-        forcedPosition,
-      );
+      mainLoopResult = this.processMainCardLoop(servant, buffs, globalBuffs, chainProps, effectiveChain, isSingleCardTest, forcedPosition);
     }
 
     let extraLoopResult = new CardLoopResult(mainLoopResult.hpForMaxRoll);
     extraLoopResult.hpForMinRoll = mainLoopResult.hpForMinRoll;
-    extraLoopResult.provisionalDamageCounterMaxRoll =
-      mainLoopResult.provisionalDamageCounterMaxRoll;
-    extraLoopResult.provisionalDamageCounterMinRoll =
-      mainLoopResult.provisionalDamageCounterMinRoll;
+    extraLoopResult.provisionalDamageCounterMaxRoll = mainLoopResult.provisionalDamageCounterMaxRoll;
+    extraLoopResult.provisionalDamageCounterMinRoll = mainLoopResult.provisionalDamageCounterMinRoll;
 
-    if (
-      (!isFallback && primaryCardCount >= BRAVE_CHAIN_CARD_REQUIREMENT) ||
-      isExtraOnlyTest
-    ) {
-      extraLoopResult = this.processExtraAttack(
-        servant,
-        buffs,
-        globalBuffs,
-        chainProps,
-        mainLoopResult,
-      );
+    if ((!isFallback && primaryCardCount >= BRAVE_CHAIN_CARD_REQUIREMENT) || isExtraOnlyTest) {
+      extraLoopResult = this.processExtraAttack(servant, buffs, globalBuffs, chainProps, mainLoopResult);
     }
 
     let finalResult = new CardLoopResult(globalBuffs.enemy.enemyHp);
@@ -291,14 +164,10 @@ export const CalculationEngine = {
 
     finalResult.hpForMinRoll = extraLoopResult.hpForMinRoll;
     finalResult.hpForMaxRoll = extraLoopResult.hpForMaxRoll;
-    finalResult.provisionalDamageCounterMinRoll =
-      extraLoopResult.provisionalDamageCounterMinRoll;
-    finalResult.provisionalDamageCounterMaxRoll =
-      extraLoopResult.provisionalDamageCounterMaxRoll;
+    finalResult.provisionalDamageCounterMinRoll = extraLoopResult.provisionalDamageCounterMinRoll;
+    finalResult.provisionalDamageCounterMaxRoll = extraLoopResult.provisionalDamageCounterMaxRoll;
 
-    let finalRefundAddRaw = Math.floor(
-      globalBuffs.npGainMods.finalRefundAdd || 0,
-    );
+    let finalRefundAddRaw = Math.floor(globalBuffs.npGainMods.finalRefundAdd || 0);
     let finalRefundAddScaled = finalRefundAddRaw * 100;
     let finalStarAdd = Math.floor(globalBuffs.starGenMods.finalStarAdd || 0);
 
@@ -309,11 +178,8 @@ export const CalculationEngine = {
     finalResult.totalStarGenMaxRollLowChance += finalStarAdd;
     finalResult.totalStarGenMaxRollHighChance += finalStarAdd;
 
-    if (
-      globalBuffs.enemy.enemyHp !== Number.MAX_SAFE_INTEGER &&
-      finalResult.damagingCardCount > 0
-    ) {
-      finalResult.successProbability = calculateSuccessProbability(
+    if (globalBuffs.enemy.enemyHp !== Number.MAX_SAFE_INTEGER && finalResult.damagingCardCount > 0) {
+      finalResult.successProbability = ProbabilityCalculator.calculateSuccessProbability(
         finalResult.avgCardDamages,
         globalBuffs.enemy.enemyHp,
       );
@@ -323,7 +189,7 @@ export const CalculationEngine = {
   },
 
   /**
-   * Distills all external buffs, stats, and relations into a finalized, immutable mathematical snapshot.
+   * Distills external buffs, stats, and relations into a finalized, immutable mathematical snapshot.
    * @param {Object} servant - The base servant entity data.
    * @param {Object} buffs - The processed buff definitions.
    * @returns {Object} Contains the evaluated mathematical `snapshot` and its associated `capInfo`.
@@ -335,8 +201,7 @@ export const CalculationEngine = {
     const classAtkMultiplierOverride = buffs.getMod("cmo");
     const extraCardModOverride = buffs.getMod("ecm");
 
-    const fouAttack =
-      buffs.mods["f"] !== undefined ? buffs.getMod("f") : DEFAULT_FOU_ATTACK;
+    const fouAttack = buffs.mods["f"] !== undefined ? buffs.getMod("f") : DEFAULT_FOU_ATTACK;
     let resolvedBaseAttack;
 
     if (attackOverride !== 0.0) {
@@ -351,369 +216,148 @@ export const CalculationEngine = {
         if (atkGrowth && atkGrowth.length >= effectiveLevel) {
           baseAttackStat = atkGrowth[effectiveLevel - 1];
         } else {
-          console.warn(
-            `Invalid atkGrowth data for lv ${effectiveLevel}. Falling back to default max ATK.`,
-          );
+          console.warn(`Invalid atkGrowth data for lv ${effectiveLevel}. Falling back to default max ATK.`);
           baseAttackStat = servant.attackMax || servant.attackStat;
         }
       } else {
-        console.warn(
-          `Invalid level ${effectiveLevel} requested. Falling back to default ATK.`,
-        );
+        console.warn(`Invalid level ${effectiveLevel} requested. Falling back to default ATK.`);
         baseAttackStat = servant.attackStat;
       }
       resolvedBaseAttack = baseAttackStat + buffs.getMod("ce") + fouAttack;
     }
 
-    const attributeRelations =
-      GameDataLoader.ATTRIBUTE_RELATIONS[servant.attribute] || {};
-    const attributeMultiplier =
-      attributeOverride !== 0.0
-        ? attributeOverride
-        : (attributeRelations[buffs.enemyAttribute] || 1000) / 1000.0;
+    const attributeRelations = GameDataLoader.ATTRIBUTE_RELATIONS[servant.attribute] || {};
+    const attributeMultiplier = attributeOverride !== 0.0 ? attributeOverride : (attributeRelations[buffs.enemyAttribute] || 1000) / 1000.0;
 
-    const classRelations =
-      GameDataLoader.CLASS_RELATIONS[servant.classType] || {};
-    const classAdvantageMultiplier =
-      classAdvantageOverride !== 0.0
-        ? classAdvantageOverride
-        : (classRelations[buffs.enemyClass] || 1000) / 1000.0;
+    const classRelations = GameDataLoader.CLASS_RELATIONS[servant.classType] || {};
+    const classAdvantageMultiplier = classAdvantageOverride !== 0.0 ? classAdvantageOverride : (classRelations[buffs.enemyClass] || 1000) / 1000.0;
 
-    const classAtkMultiplier =
-      classAtkMultiplierOverride !== 0.0
-        ? classAtkMultiplierOverride
-        : (GameDataLoader.CLASS_ATTACK_MODIFIERS[servant.classType] || 1000) /
-          1000.0;
+    const classAtkMultiplier = classAtkMultiplierOverride !== 0.0 ? classAtkMultiplierOverride : (GameDataLoader.CLASS_ATTACK_MODIFIERS[servant.classType] || 1000) / 1000.0;
 
     const esmOverride = buffs.getMod("esm");
     const esrOverride = buffs.getMod("esr");
-    const enemyMods = GameDataLoader.ENEMY_CLASS_MODS[buffs.enemyClass] || {
-      attackRate: 1.0,
-      starRate: 1.0,
-    };
+    const enemyMods = GameDataLoader.ENEMY_CLASS_MODS[buffs.enemyClass] || { attackRate: 1.0, starRate: 1.0 };
     const enemyServerMod = enemyMods.attackRate || 1.0;
     const enemyServerRate = enemyMods.starRate || 1.0;
 
-    const finalEnemyServerMod =
-      esmOverride !== 0.0 ? esmOverride : enemyServerMod;
-    const finalEnemyServerRate =
-      esrOverride !== 0.0 ? esrOverride * 100 : (enemyServerRate - 1.0) * 100.0;
+    const finalEnemyServerMod = esmOverride !== 0.0 ? esmOverride : enemyServerMod;
+    const finalEnemyServerRate = esrOverride !== 0.0 ? esrOverride * 100 : (enemyServerRate - 1.0) * 100.0;
 
     let warnings = [];
     let nocap = buffs.getFlag("nocap");
 
     if (!nocap) {
-      checkBuffCap(
-        buffs.getMod("a"),
-        "ATK",
-        ATK_DEF_CARDMOD_LOWER_BOUND,
-        ATK_DEF_CARDMOD_UPPER_BOUND,
-        warnings,
-      );
-      checkBuffCap(
-        buffs.getMod("d"),
-        "DEF",
-        ATK_DEF_CARDMOD_LOWER_BOUND,
-        ATK_DEF_CARDMOD_UPPER_BOUND,
-        warnings,
-      );
-      checkBuffCap(
-        buffs.getMod("am") + buffs.getMod("ap"),
-        "Arts Mod",
-        ATK_DEF_CARDMOD_LOWER_BOUND,
-        ATK_DEF_CARDMOD_UPPER_BOUND,
-        warnings,
-      );
-      checkBuffCap(
-        buffs.getMod("bm") + buffs.getMod("bp"),
-        "Buster Mod",
-        ATK_DEF_CARDMOD_LOWER_BOUND,
-        ATK_DEF_CARDMOD_UPPER_BOUND,
-        warnings,
-      );
-      checkBuffCap(
-        buffs.getMod("qm") + buffs.getMod("qp"),
-        "Quick Mod",
-        ATK_DEF_CARDMOD_LOWER_BOUND,
-        ATK_DEF_CARDMOD_UPPER_BOUND,
-        warnings,
-      );
-      checkBuffCap(
-        buffs.getMod("cd") +
-          buffs.getMod("acd") +
-          buffs.getMod("bcd") +
-          buffs.getMod("qcd"),
-        "Crit Dmg",
-        CRITDMG_NPDMG_LOWER_BOUND,
-        CRITDMG_NPDMG_UPPER_BOUND,
-        warnings,
-      );
-      checkBuffCap(
-        buffs.getMod("n"),
-        "NP Dmg",
-        CRITDMG_NPDMG_LOWER_BOUND,
-        CRITDMG_NPDMG_UPPER_BOUND,
-        warnings,
-      );
-      checkBuffCap(
-        buffs.getMod("p"),
-        "Power Mod",
-        POWERMOD_SPECIALATKMOD_LOWER_BOUND,
-        POWERMOD_SPECIALATKMOD_UPPER_BOUND,
-        warnings,
-      );
-      checkBuffCap(
-        buffs.getMod("sam"),
-        "Special ATK",
-        POWERMOD_SPECIALATKMOD_LOWER_BOUND,
-        POWERMOD_SPECIALATKMOD_UPPER_BOUND,
-        warnings,
-      );
-      checkBuffCap(
-        buffs.getMod("sdm"),
-        "Special DEF",
-        SPECIALDEFMOD_LOWER_BOUND,
-        SPECIALDEFMOD_UPPER_BOUND,
-        warnings,
-      );
-      checkBuffCap(
-        buffs.getMod("ng"),
-        "NP Gain",
-        ATK_DEF_CARDMOD_LOWER_BOUND,
-        CRITDMG_NPDMG_UPPER_BOUND,
-        warnings,
-      );
-      checkBuffCap(
-        buffs.getMod("sg"),
-        "Star Gen",
-        POWERMOD_SPECIALATKMOD_LOWER_BOUND,
-        POWERMOD_SPECIALATKMOD_UPPER_BOUND,
-        warnings,
-      );
+      checkBuffCap(buffs.getMod("a"), "ATK", ATK_DEF_CARDMOD_LOWER_BOUND, ATK_DEF_CARDMOD_UPPER_BOUND, warnings);
+      checkBuffCap(buffs.getMod("d"), "DEF", ATK_DEF_CARDMOD_LOWER_BOUND, ATK_DEF_CARDMOD_UPPER_BOUND, warnings);
+      checkBuffCap(buffs.getMod("am") + buffs.getMod("ap"), "Arts Mod", ATK_DEF_CARDMOD_LOWER_BOUND, ATK_DEF_CARDMOD_UPPER_BOUND, warnings);
+      checkBuffCap(buffs.getMod("bm") + buffs.getMod("bp"), "Buster Mod", ATK_DEF_CARDMOD_LOWER_BOUND, ATK_DEF_CARDMOD_UPPER_BOUND, warnings);
+      checkBuffCap(buffs.getMod("qm") + buffs.getMod("qp"), "Quick Mod", ATK_DEF_CARDMOD_LOWER_BOUND, ATK_DEF_CARDMOD_UPPER_BOUND, warnings);
+      checkBuffCap(buffs.getMod("cd") + buffs.getMod("acd") + buffs.getMod("bcd") + buffs.getMod("qcd"), "Crit Dmg", CRITDMG_NPDMG_LOWER_BOUND, CRITDMG_NPDMG_UPPER_BOUND, warnings);
+      checkBuffCap(buffs.getMod("n"), "NP Dmg", CRITDMG_NPDMG_LOWER_BOUND, CRITDMG_NPDMG_UPPER_BOUND, warnings);
+      checkBuffCap(buffs.getMod("p"), "Power Mod", POWERMOD_SPECIALATKMOD_LOWER_BOUND, POWERMOD_SPECIALATKMOD_UPPER_BOUND, warnings);
+      checkBuffCap(buffs.getMod("sam"), "Special ATK", POWERMOD_SPECIALATKMOD_LOWER_BOUND, POWERMOD_SPECIALATKMOD_UPPER_BOUND, warnings);
+      checkBuffCap(buffs.getMod("sdm"), "Special DEF", SPECIALDEFMOD_LOWER_BOUND, SPECIALDEFMOD_UPPER_BOUND, warnings);
+      checkBuffCap(buffs.getMod("ng"), "NP Gain", ATK_DEF_CARDMOD_LOWER_BOUND, CRITDMG_NPDMG_UPPER_BOUND, warnings);
+      checkBuffCap(buffs.getMod("sg"), "Star Gen", POWERMOD_SPECIALATKMOD_LOWER_BOUND, POWERMOD_SPECIALATKMOD_UPPER_BOUND, warnings);
     }
 
     let strKey = String(buffs.str !== 0 ? buffs.str : buffs.getMod("str") || 0);
     let finalStrKey = "0";
 
-    if (strKey !== "0" && servant.npCardTypes[strKey]) {
-      finalStrKey = strKey;
-    }
+    if (strKey !== "0" && servant.npCardTypes[strKey]) finalStrKey = strKey;
 
-    let overchargeLevel =
-      buffs.overchargeLevel !== 1
-        ? buffs.overchargeLevel
-        : buffs.getMod("oc") || 1;
+    let overchargeLevel = buffs.overchargeLevel !== 1 ? buffs.overchargeLevel : buffs.getMod("oc") || 1;
 
     const npCardType = servant.npCardTypes[finalStrKey] || "arts";
     let npDamageStat = servant.npDamageStats[finalStrKey] || [0, 0, 0, 0, 0];
     let npDamageStatOC = servant.npDamageStatsOC[finalStrKey] || [];
 
     const damageMods = {
-      attackMod: buffs.getMod("a"),
-      defenceMod: buffs.getMod("d"),
-      artsMod: buffs.getMod("am"),
-      busterMod: buffs.getMod("bm"),
-      quickMod: buffs.getMod("qm"),
-      extraMod: buffs.getMod("em"),
-      powerMod: buffs.getMod("p"),
-      npDamageMod: buffs.getMod("n"),
-      critDamageMod: buffs.getMod("cd"),
-      specialDefenceMod: buffs.getMod("sdm"),
-      specialAttackMod: buffs.getMod("sam"),
-      superEffectiveMod: buffs.getMod("se"),
-      npPowerBoost: buffs.getMod("npp"),
-      artsPower: buffs.getMod("ap"),
-      busterPower: buffs.getMod("bp"),
-      quickPower: buffs.getMod("qp"),
-      extraPower: buffs.getMod("ep"),
-      artsCritDamageMod: buffs.getMod("acd"),
-      busterCritDamageMod: buffs.getMod("bcd"),
-      quickCritDamageMod: buffs.getMod("qcd"),
-      flatDamage: buffs.getMod("fd"),
-      npDamageOverride: buffs.getMod("np"),
-      npLevelValue: buffs.getMod("npo"),
+      attackMod: buffs.getMod("a"), defenceMod: buffs.getMod("d"), artsMod: buffs.getMod("am"), busterMod: buffs.getMod("bm"),
+      quickMod: buffs.getMod("qm"), extraMod: buffs.getMod("em"), powerMod: buffs.getMod("p"), npDamageMod: buffs.getMod("n"),
+      critDamageMod: buffs.getMod("cd"), specialDefenceMod: buffs.getMod("sdm"), specialAttackMod: buffs.getMod("sam"),
+      superEffectiveMod: buffs.getMod("se"), npPowerBoost: buffs.getMod("npp"), artsPower: buffs.getMod("ap"),
+      busterPower: buffs.getMod("bp"), quickPower: buffs.getMod("qp"), extraPower: buffs.getMod("ep"),
+      artsCritDamageMod: buffs.getMod("acd"), busterCritDamageMod: buffs.getMod("bcd"), quickCritDamageMod: buffs.getMod("qcd"),
+      flatDamage: buffs.getMod("fd"), npDamageOverride: buffs.getMod("np"), npLevelValue: buffs.getMod("npo"),
     };
 
     const npGainMods = {
-      npGainMod: buffs.getMod("ng"),
-      enemyServerMod: finalEnemyServerMod,
-      finalRefundAdd: buffs.getMod("fr"),
-      artsNpGainMod: buffs.getMod("ang"),
-      busterNpGainMod: buffs.getMod("bng"),
-      quickNpGainMod: buffs.getMod("qng"),
+      npGainMod: buffs.getMod("ng"), enemyServerMod: finalEnemyServerMod, finalRefundAdd: buffs.getMod("fr"),
+      artsNpGainMod: buffs.getMod("ang"), busterNpGainMod: buffs.getMod("bng"), quickNpGainMod: buffs.getMod("qng"),
     };
 
     const starGenMods = {
-      stargen: buffs.getMod("sg"),
-      enemyServerRate: finalEnemyServerRate,
-      finalStarAdd: buffs.getMod("fs"),
-      artsStarGenMod: buffs.getMod("asg"),
-      busterStarGenMod: buffs.getMod("bsg"),
-      quickStarGenMod: buffs.getMod("qsg"),
+      stargen: buffs.getMod("sg"), enemyServerRate: finalEnemyServerRate, finalStarAdd: buffs.getMod("fs"),
+      artsStarGenMod: buffs.getMod("asg"), busterStarGenMod: buffs.getMod("bsg"), quickStarGenMod: buffs.getMod("qsg"),
     };
 
     const enemy = {
-      enemyHp:
-        buffs.enemyHp === Number.MAX_SAFE_INTEGER
-          ? Number.MAX_SAFE_INTEGER
-          : buffs.enemyHp,
-      enemyAttribute: buffs.enemyAttribute,
-      enemyClass: buffs.enemyClass,
+      enemyHp: buffs.enemyHp === Number.MAX_SAFE_INTEGER ? Number.MAX_SAFE_INTEGER : buffs.enemyHp,
+      enemyAttribute: buffs.enemyAttribute, enemyClass: buffs.enemyClass,
     };
 
-    const advantages = {
-      attributeMultiplier,
-      classAdvantageMultiplier,
-      classAtkMultiplier,
-    };
+    const advantages = { attributeMultiplier, classAdvantageMultiplier, classAtkMultiplier };
 
-    // --- Added Rate Fallbacks ---
-    const damageRate =
-      buffs.mods["dr"] !== undefined ? buffs.getMod("dr") : -1.0;
-    const npGainRate =
-      buffs.mods["ngr"] !== undefined ? buffs.getMod("ngr") : -1.0;
-    const starGenRate =
-      buffs.mods["sgr"] !== undefined ? buffs.getMod("sgr") : -1.0;
+    const damageRate = buffs.mods["dr"] !== undefined ? buffs.getMod("dr") : -1.0;
+    const npGainRate = buffs.mods["ngr"] !== undefined ? buffs.getMod("ngr") : -1.0;
+    const starGenRate = buffs.mods["sgr"] !== undefined ? buffs.getMod("sgr") : -1.0;
 
     const snapshot = {
-      damageMods,
-      npGainMods,
-      starGenMods,
-      enemy,
-      advantages,
-      resolvedBaseAttack,
-      fouPawAttack: buffs.getMod("fp"),
-      attackOverride,
-      extraCardModOverride,
-      rngOverride: buffs.getMod("rng"),
-      overkillFlag: buffs.getFlag("ok"),
-      damageRate, // <--- Injected
-      npGainRate, // <--- Injected
-      starGenRate, // <--- Injected
-      npCardType,
-      npRateCard: servant.npRateCard,
-      npRateNP: servant.npRateNP,
-      npHits: servant.npHits,
-      npDamageStat,
-      npDamageStatOC,
-      overchargeLevel,
-      npStrKey: finalStrKey,
+      damageMods, npGainMods, starGenMods, enemy, advantages, resolvedBaseAttack, fouPawAttack: buffs.getMod("fp"),
+      attackOverride, extraCardModOverride, rngOverride: buffs.getMod("rng"), overkillFlag: buffs.getFlag("ok"),
+      damageRate, npGainRate, starGenRate, npCardType, npRateCard: servant.npRateCard, npRateNP: servant.npRateNP,
+      npHits: servant.npHits, npDamageStat, npDamageStatOC, overchargeLevel, npStrKey: finalStrKey,
     };
 
     return {snapshot, capInfo: {warnings, nocap}};
   },
 
   /**
-   * Scans a string sequence of cards to determine relevant chain bonuses (Mighty, Brave, Buster).
-   * @param {string} effectiveChain - The raw card sequence.
+   * Scans a sequence of cards to determine chain bonuses (Mighty, Brave, Buster).
+   * @param {string} effectiveChain - Raw card sequence.
    * @param {string} normalizedChain - Sequence normalized to generic color keys.
    * @param {string} npCardType - The NP color for the servant.
-   * @param {Object} buffs - Parsed active buffs evaluating forced flags.
+   * @param {Object} buffs - Parsed active buffs.
    * @param {number} primaryCardCount - Quantity of non-extra cards.
-   * @param {boolean} isSingleCardTest - Flag designating solitary card evaluations.
-   * @param {boolean} isExtraOnlyTest - Flag designating solitary extra-attack evaluations.
-   * @returns {Object} Extracted chain properties and starting bonus integers.
+   * @param {boolean} isSingleCardTest - Flag designating solitary evaluations.
+   * @param {boolean} isExtraOnlyTest - Flag designating extra-only evaluations.
+   * @returns {Object} Extracted chain properties.
    */
-  analyzeChain(
-    effectiveChain,
-    normalizedChain,
-    npCardType,
-    buffs,
-    primaryCardCount,
-    isSingleCardTest,
-    isExtraOnlyTest,
-  ) {
-    let isBraveChainMatch = false;
-    let isMightyChain = false;
-    let isBusterChain = false;
-    let isBraveChain =
-      primaryCardCount >= BRAVE_CHAIN_CARD_REQUIREMENT &&
-      !isSingleCardTest &&
-      !isExtraOnlyTest;
+  analyzeChain(effectiveChain, normalizedChain, npCardType, buffs, primaryCardCount, isSingleCardTest, isExtraOnlyTest) {
+    let isBraveChainMatch = false, isMightyChain = false, isBusterChain = false;
+    let isBraveChain = primaryCardCount >= BRAVE_CHAIN_CARD_REQUIREMENT && !isSingleCardTest && !isExtraOnlyTest;
 
     if (isBraveChain) {
       const threePrimaryCards = normalizedChain.replace(/[xe]/g, "");
       if (threePrimaryCards.length >= BRAVE_CHAIN_CARD_REQUIREMENT) {
-        const firstThree = threePrimaryCards.substring(
-          0,
-          BRAVE_CHAIN_CARD_REQUIREMENT,
-        );
+        const firstThree = threePrimaryCards.substring(0, BRAVE_CHAIN_CARD_REQUIREMENT);
         if (/^[a]{3}$/.test(firstThree)) isBraveChainMatch = true;
         else if (/^[q]{3}$/.test(firstThree)) isBraveChainMatch = true;
-        else if (/^[b]{3}$/.test(firstThree)) {
-          isBraveChainMatch = true;
-          isBusterChain = true;
-        }
+        else if (/^[b]{3}$/.test(firstThree)) { isBraveChainMatch = true; isBusterChain = true; }
       }
-      if (
-        normalizedChain.includes("a") &&
-        normalizedChain.includes("b") &&
-        normalizedChain.includes("q")
-      ) {
-        isMightyChain = true;
-      }
+      if (normalizedChain.includes("a") && normalizedChain.includes("b") && normalizedChain.includes("q")) isMightyChain = true;
     }
 
     if (buffs.getFlag("bc") && !isBusterChain) isBusterChain = true;
     if (buffs.getFlag("mighty") && !isMightyChain) isMightyChain = true;
 
-    const isFirstBuster =
-      effectiveChain.startsWith("b") ||
-      (effectiveChain.startsWith("np") && npCardType === "buster");
-    const firstCardBusterBonus =
-      isMightyChain ||
-      buffs.getFlag("bf") ||
-      (isFirstBuster && !buffs.getFlag("nobf"))
-        ? FIRST_CARD_BUSTER_BONUS
-        : 0.0;
+    const isFirstBuster = effectiveChain.startsWith("b") || (effectiveChain.startsWith("np") && npCardType === "buster");
+    const firstCardBusterBonus = isMightyChain || buffs.getFlag("bf") || (isFirstBuster && !buffs.getFlag("nobf")) ? FIRST_CARD_BUSTER_BONUS : 0.0;
 
-    const isFirstArts =
-      effectiveChain.startsWith("a") ||
-      (effectiveChain.startsWith("np") && npCardType === "arts");
-    const firstCardArtsBonus =
-      isMightyChain || buffs.getFlag("af") || isFirstArts
-        ? FIRST_CARD_ARTS_BONUS
-        : 0.0;
+    const isFirstArts = effectiveChain.startsWith("a") || (effectiveChain.startsWith("np") && npCardType === "arts");
+    const firstCardArtsBonus = isMightyChain || buffs.getFlag("af") || isFirstArts ? FIRST_CARD_ARTS_BONUS : 0.0;
 
-    const isFirstQuick =
-      effectiveChain.startsWith("q") ||
-      (effectiveChain.startsWith("np") && npCardType === "quick");
-    const firstCardQuickBonus =
-      isMightyChain || buffs.getFlag("qf") || isFirstQuick
-        ? FIRST_CARD_QUICK_BONUS
-        : 0.0;
+    const isFirstQuick = effectiveChain.startsWith("q") || (effectiveChain.startsWith("np") && npCardType === "quick");
+    const firstCardQuickBonus = isMightyChain || buffs.getFlag("qf") || isFirstQuick ? FIRST_CARD_QUICK_BONUS : 0.0;
 
     return {
-      isBraveChain,
-      isBraveChainMatch,
-      isMightyChain,
-      isBusterChain,
-      firstCardBusterBonus,
-      firstCardArtsBonus,
-      firstCardQuickBonus,
+      isBraveChain, isBraveChainMatch, isMightyChain, isBusterChain,
+      firstCardBusterBonus, firstCardArtsBonus, firstCardQuickBonus,
     };
   },
 
-  /**
-   * Processes the hit-by-hit logic sequentially through standard (non-extra) cards in the chain.
-   * @param {Object} servant - The active servant object.
-   * @param {Object} buffs - Current active buffs.
-   * @param {Object} g - Evaluated global parameters object.
-   * @param {Object} chainProps - The extracted chain properties.
-   * @param {string} effectiveChain - Processable string representing the attack order.
-   * @param {boolean} isSingleCardTest - Restricts loop to one pass.
-   * @param {number} forcedPosition - Artificially sets positional multipliers.
-   * @returns {CardLoopResult} Cumulative damage, NP, and stargen metrics.
-   */
-  processMainCardLoop(
-    servant,
-    buffs,
-    g,
-    chainProps,
-    effectiveChain,
-    isSingleCardTest,
-    forcedPosition,
-  ) {
+  processMainCardLoop(servant, buffs, g, chainProps, effectiveChain, isSingleCardTest, forcedPosition) {
     let result = new CardLoopResult(g.enemy.enemyHp);
     let chainHasNp = effectiveChain.includes("np");
     let npCardEncountered = false;
@@ -722,38 +366,23 @@ export const CalculationEngine = {
     let i = 0;
 
     while (i < chain.length) {
-      let currentCardToken =
-        i + 1 < chain.length && chain.startsWith("np", i)
-          ? "np"
-          : chain.substring(i, i + 1);
+      let currentCardToken = i + 1 < chain.length && chain.startsWith("np", i) ? "np" : chain.substring(i, i + 1);
       i += currentCardToken.length;
 
       if (currentCardToken === "np") npCardEncountered = true;
       if (currentCardToken === "x" || currentCardToken === "e") {
-        if (!isSingleCardTest && currentCardToken !== "e")
-          cardPositionInChain++;
+        if (!isSingleCardTest && currentCardToken !== "e") cardPositionInChain++;
         continue;
       }
 
-      let actualPosition = isSingleCardTest
-        ? forcedPosition > 0
-          ? forcedPosition
-          : 1
-        : cardPositionInChain;
+      let actualPosition = isSingleCardTest ? forcedPosition > 0 ? forcedPosition : 1 : cardPositionInChain;
 
       const input = {
-        servant,
-        buffs,
-        g,
-        chainProps,
-        currentCardToken,
-        actualPosition,
-        hpForMinRoll: result.hpForMinRoll,
-        hpForMaxRoll: result.hpForMaxRoll,
+        servant, buffs, g, chainProps, currentCardToken, actualPosition,
+        hpForMinRoll: result.hpForMinRoll, hpForMaxRoll: result.hpForMaxRoll,
         provisionalDamageCounterMinRoll: result.provisionalDamageCounterMinRoll,
         provisionalDamageCounterMaxRoll: result.provisionalDamageCounterMaxRoll,
-        chainHasNp,
-        npCardEncountered,
+        chainHasNp, npCardEncountered,
       };
 
       const cardResult = this.processOneCard(input);
@@ -772,52 +401,24 @@ export const CalculationEngine = {
     return result;
   },
 
-  /**
-   * Translates single attacks into properly scaled distribution percentages based on internal mechanics.
-   * @param {Object} servant - The active servant object.
-   * @param {Object} g - Evaluated global parameters.
-   * @param {string} currentCardToken - Identifier characterizing the attack form.
-   * @param {number} hitMultiplier - Flat scalar for increasing physical hit quantities.
-   * @returns {number[]} Array of fractional percentage representations of damage per hit.
-   */
   getExpandedHitDistribution(servant, g, currentCardToken, hitMultiplier) {
-    let hitDistKey =
-      currentCardToken === "np"
-        ? "np" +
-          g.npCardType.charAt(0).toUpperCase() +
-          g.npCardType.slice(1).toLowerCase() +
-          g.npStrKey
-        : currentCardToken;
-
+    let hitDistKey = currentCardToken === "np" ? "np" + g.npCardType.charAt(0).toUpperCase() + g.npCardType.slice(1).toLowerCase() + g.npStrKey : currentCardToken;
     let originalDist = servant.hitDistributions[hitDistKey];
     let originalHits = 0;
 
     switch (currentCardToken) {
-      case "a":
-        originalHits = servant.artsHits;
-        break;
-      case "b":
-        originalHits = servant.busterHits;
-        break;
-      case "q":
-        originalHits = servant.quickHits;
-        break;
-      case "np":
-        originalHits = g.npHits;
-        break;
-      case "e":
-        originalHits = servant.extraHits;
-        break;
+      case "a": originalHits = servant.artsHits; break;
+      case "b": originalHits = servant.busterHits; break;
+      case "q": originalHits = servant.quickHits; break;
+      case "np": originalHits = g.npHits; break;
+      case "e": originalHits = servant.extraHits; break;
     }
 
     if (!originalDist || originalHits !== originalDist.length) {
-      console.warn(
-        `Hit distribution missing or mismatched for card type: ${hitDistKey}`,
-      );
+      console.warn(`Hit distribution missing or mismatched for card type: ${hitDistKey}`);
       originalDist = [];
       if (originalHits > 0) {
-        for (let i = 0; i < originalHits; i++)
-          originalDist.push(1.0 / originalHits);
+        for (let i = 0; i < originalHits; i++) originalDist.push(1.0 / originalHits);
       }
       originalHits = originalDist.length;
     }
@@ -834,131 +435,8 @@ export const CalculationEngine = {
     return originalDist;
   },
 
-  /**
-   * Resolves the percentage likelihood for an attack to generate a critical star.
-   * @param {Object} servant - The active servant object.
-   * @param {Object} g - Evaluated global parameters.
-   * @param {Object} localMods - Sub-dictionary of card-specific contextual buffs.
-   * @param {string} currentCardToken - Identifier characterizing the attack form.
-   * @param {number} actualPosition - Ordered location of this strike in the chain.
-   * @param {number} firstCardBonus - Retained bonus modifiers.
-   * @param {boolean} isCrit - Modifies mathematical likelihood based on strike severity.
-   * @param {boolean} isNonDamagingNP - Truncates logic entirely for non-damaging interactions.
-   * @returns {number} Floating point base probability to generate a star per hit.
-   */
-  getBaseStarChance(
-    servant,
-    g,
-    localMods,
-    currentCardToken,
-    actualPosition,
-    firstCardBonus,
-    isCrit,
-    isNonDamagingNP,
-    resolvedSgr, // <--- Accepts resolved rate
-  ) {
-    if (isNonDamagingNP) return 0.0;
-
-    let cardStarValue = 0.0;
-    let cardSpecificStarGenMod = 0.0;
-    let effectiveCardType =
-      currentCardToken === "np"
-        ? g.npCardType.charAt(0).toLowerCase()
-        : currentCardToken;
-
-    const finalStarGenRateMod = resolvedSgr / 100.0; // <--- Multiplier
-
-    if (currentCardToken === "e") {
-      let extraCardMod = applyCap(
-        g.damageMods.extraMod + (localMods["em"] || 0.0),
-        ATK_DEF_CARDMOD_LOWER_BOUND,
-        ATK_DEF_CARDMOD_UPPER_BOUND,
-        false,
-      );
-      let starGenMod = applyCap(
-        g.starGenMods.stargen + (localMods["sg"] || 0.0),
-        CRITDMG_NPDMG_LOWER_BOUND,
-        POWERMOD_SPECIALATKMOD_UPPER_BOUND,
-        false,
-      );
-      return (
-        (servant.starRate / 10.0 +
-          firstCardBonus +
-          EXTRA_CARD_STAR_VALUE * (1.0 + extraCardMod / 100.0) +
-          g.starGenMods.enemyServerRate +
-          starGenMod) *
-        finalStarGenRateMod
-      );
-    }
-
-    let starValueIndex =
-      currentCardToken === "np" ? 0 : Math.min(actualPosition, 3) - 1;
-
-    switch (effectiveCardType) {
-      case "a":
-        cardStarValue = CARD_STAR_VALUES["a"][starValueIndex];
-        cardSpecificStarGenMod =
-          g.starGenMods.artsStarGenMod + (localMods["asg"] || 0.0);
-        break;
-      case "b":
-        cardStarValue = CARD_STAR_VALUES["b"][starValueIndex];
-        cardSpecificStarGenMod =
-          g.starGenMods.busterStarGenMod + (localMods["bsg"] || 0.0);
-        break;
-      case "q":
-        cardStarValue = CARD_STAR_VALUES["q"][starValueIndex];
-        cardSpecificStarGenMod =
-          g.starGenMods.quickStarGenMod + (localMods["qsg"] || 0.0);
-        break;
-    }
-
-    let cardMod = 0;
-    switch (effectiveCardType) {
-      case "a":
-        cardMod = g.damageMods.artsMod + (localMods["am"] || 0.0);
-        break;
-      case "b":
-        cardMod = g.damageMods.busterMod + (localMods["bm"] || 0.0);
-        break;
-      case "q":
-        cardMod = g.damageMods.quickMod + (localMods["qm"] || 0.0);
-        break;
-    }
-
-    cardMod = applyCap(
-      cardMod,
-      ATK_DEF_CARDMOD_LOWER_BOUND,
-      ATK_DEF_CARDMOD_UPPER_BOUND,
-      false,
-    );
-    let starGenMod = applyCap(
-      g.starGenMods.stargen + cardSpecificStarGenMod + (localMods["sg"] || 0.0),
-      CRITDMG_NPDMG_LOWER_BOUND,
-      POWERMOD_SPECIALATKMOD_UPPER_BOUND,
-      false,
-    );
-
-    let critMod = isCrit ? STAR_GEN_CRIT_MODIFIER : 0.0;
-
-    return (
-      (servant.starRate / 10.0 +
-        firstCardBonus +
-        cardStarValue * Math.max(1.0 + cardMod / 100.0, 0) +
-        g.starGenMods.enemyServerRate +
-        starGenMod +
-        critMod) *
-      finalStarGenRateMod
-    );
-  },
-
-  /**
-   * Sub-processor resolving the detailed per-hit characteristics of an individual card interaction.
-   * @param {Object} input - Composite wrapper enclosing required states and modifiers.
-   * @returns {Object} Mathematical results strictly scoped to this card's segment in the chain.
-   */
   processOneCard(input) {
-    const {servant, buffs, g, chainProps, currentCardToken, actualPosition} =
-      input;
+    const {servant, buffs, g, chainProps, currentCardToken, actualPosition} = input;
 
     let result = new CardLoopResult(0);
     result.damagingCardCount++;
@@ -969,65 +447,27 @@ export const CalculationEngine = {
 
     let localMods = buffs.cardMods[actualPosition] || {};
     let localFlags = buffs.cardFlags[actualPosition] || {};
-    let isCrit =
-      (buffs.getFlag("crit") || localFlags["crit"]) &&
-      currentCardToken !== "np";
+    let isCrit = (buffs.getFlag("crit") || localFlags["crit"]) && currentCardToken !== "np";
 
-    // --- Resolve Hierarchy ---
+    // --- Resolve Rates Hierarchy ---
     let effectiveCardType = currentCardToken === "np" ? "np" : currentCardToken;
-    let servantRates = servant.aoeRates[effectiveCardType] || [
-      100.0, 100.0, 100.0,
-    ];
-    let resolvedDr =
-      localMods["dr"] !== undefined
-        ? localMods["dr"]
-        : g.damageRate !== -1.0
-          ? g.damageRate
-          : servantRates[0];
-    let resolvedNgr =
-      localMods["ngr"] !== undefined
-        ? localMods["ngr"]
-        : g.npGainRate !== -1.0
-          ? g.npGainRate
-          : servantRates[1];
-    let resolvedSgr =
-      localMods["sgr"] !== undefined
-        ? localMods["sgr"]
-        : g.starGenRate !== -1.0
-          ? g.starGenRate
-          : servantRates[2];
+    let servantRates = servant.aoeRates[effectiveCardType] || [100.0, 100.0, 100.0];
+    let resolvedDr = localMods["dr"] !== undefined ? localMods["dr"] : (g.damageRate !== -1.0 ? g.damageRate : servantRates[0]);
+    let resolvedNgr = localMods["ngr"] !== undefined ? localMods["ngr"] : (g.npGainRate !== -1.0 ? g.npGainRate : servantRates[1]);
+    let resolvedSgr = localMods["sgr"] !== undefined ? localMods["sgr"] : (g.starGenRate !== -1.0 ? g.starGenRate : servantRates[2]);
 
-    let hitMultiplier = Math.max(
-      1,
-      Math.floor(buffs.getMod("ff") + (localMods["ff"] || 0.0)),
-    );
-    let hitDistribution = this.getExpandedHitDistribution(
-      servant,
-      g,
-      currentCardToken,
-      hitMultiplier,
-    );
+    let hitMultiplier = Math.max(1, Math.floor(buffs.getMod("ff") + (localMods["ff"] || 0.0)));
+    let hitDistribution = this.getExpandedHitDistribution(servant, g, currentCardToken, hitMultiplier);
     let numHits = hitDistribution.length;
 
-    let cardDamage = this.calculateSingleCardDamage(
-      servant,
-      buffs,
-      g,
-      currentCardToken,
-      actualPosition,
-      chainProps.firstCardBusterBonus,
-      resolvedDr,
+    let cardDamage = DamageCalculator.calculateSingleCardDamage(
+      servant, buffs, g, currentCardToken, actualPosition, chainProps.firstCardBusterBonus, resolvedDr
     );
-    let totalFlatDamageForThisCard =
-      g.damageMods.flatDamage + (localMods["fd"] || 0.0);
+    let totalFlatDamageForThisCard = g.damageMods.flatDamage + (localMods["fd"] || 0.0);
 
     if (chainProps.isBusterChain && currentCardToken === "b") {
-      let currentFouPaw =
-        currentCardToken === "np"
-          ? 0
-          : g.fouPawAttack + (localMods["fp"] || 0.0);
-      totalFlatDamageForThisCard +=
-        (g.resolvedBaseAttack + currentFouPaw) * BUSTER_CHAIN_MOD;
+      let currentFouPaw = currentCardToken === "np" ? 0 : g.fouPawAttack + (localMods["fp"] || 0.0);
+      totalFlatDamageForThisCard += (g.resolvedBaseAttack + currentFouPaw) * BUSTER_CHAIN_MOD;
     }
 
     let hpForMinRoll = input.hpForMinRoll;
@@ -1052,76 +492,38 @@ export const CalculationEngine = {
       let npLevel = Math.floor(g.damageMods.npLevelValue || DEFAULT_NP_LEVEL);
       if (npLevel <= 0 || npLevel > MAX_NP_LEVEL) npLevel = DEFAULT_NP_LEVEL;
       let npDamageOverride = g.damageMods.npDamageOverride;
-      let npDamageMod =
-        g.npDamageStat && g.npDamageStat.length >= npLevel
-          ? g.npDamageStat[npLevel - 1]
-          : 0.0;
+      let npDamageMod = g.npDamageStat && g.npDamageStat.length >= npLevel ? g.npDamageStat[npLevel - 1] : 0.0;
       isNonDamagingNP = npDamageOverride === 0.0 && npDamageMod === 0.0;
     }
 
-    let hitGain_no_floor = this.calculateSingleHitRefund(
-      buffs,
-      g,
-      localMods,
-      currentCardToken,
-      actualPosition,
-      chainProps.firstCardArtsBonus,
-      isCrit,
-      resolvedNgr,
+    let hitGain_no_floor = RefundCalculator.calculateSingleHitRefund(
+      buffs, g, localMods, currentCardToken, actualPosition, chainProps.firstCardArtsBonus, isCrit, resolvedNgr
     );
     let base_gain = Math.floor(hitGain_no_floor);
     let overkill_gain = Math.floor(base_gain * OVERKILL_MODIFIER);
 
-    let firstCardBonus =
-      currentCardToken === "np" ? 0.0 : chainProps.firstCardQuickBonus;
-    let baseStarChance = this.getBaseStarChance(
-      servant,
-      g,
-      localMods,
-      currentCardToken,
-      actualPosition,
-      firstCardBonus,
-      isCrit,
-      isNonDamagingNP,
-      resolvedSgr,
+    let firstCardBonus = currentCardToken === "np" ? 0.0 : chainProps.firstCardQuickBonus;
+    let baseStarChance = StarGenCalculator.getBaseStarChance(
+      servant, g, localMods, currentCardToken, actualPosition, firstCardBonus, isCrit, isNonDamagingNP, resolvedSgr
     );
 
-    let totalCardDamageMin = Math.max(
-      cardDamage * rngMin + totalFlatDamageForThisCard,
-      0.0,
-    );
-    let totalCardDamageMax = Math.max(
-      cardDamage * rngMax + totalFlatDamageForThisCard,
-      0.0,
-    );
+    let totalCardDamageMin = Math.max(cardDamage * rngMin + totalFlatDamageForThisCard, 0.0);
+    let totalCardDamageMax = Math.max(cardDamage * rngMax + totalFlatDamageForThisCard, 0.0);
 
-    let cardRefundMin = 0,
-      cardRefundMax = 0;
-    let cardStarGenMinLowChance = 0,
-      cardStarGenMaxLowChance = 0,
-      cardStarGenMinHighChance = 0,
-      cardStarGenMaxHighChance = 0;
-    let cardOverkillHitsMinRoll = 0,
-      cardOverkillHitsMaxRoll = 0;
-    let accumulatedDamageMin = 0,
-      accumulatedDamageMax = 0;
+    let cardRefundMin = 0, cardRefundMax = 0;
+    let cardStarGenMinLowChance = 0, cardStarGenMaxLowChance = 0, cardStarGenMinHighChance = 0, cardStarGenMaxHighChance = 0;
+    let cardOverkillHitsMinRoll = 0, cardOverkillHitsMaxRoll = 0;
+    let accumulatedDamageMin = 0, accumulatedDamageMax = 0;
 
     for (let h = 0; h < numHits; h++) {
       let rawPercentage = numHits > 0 ? hitDistribution[h] : 0.0;
-      let effectiveScale =
-        hitMultiplier > 1 ? rawPercentage / hitMultiplier : rawPercentage;
+      let effectiveScale = hitMultiplier > 1 ? rawPercentage / hitMultiplier : rawPercentage;
 
       let hitDamageSimMin, hitDamageSimMax;
 
       if (h === numHits - 1) {
-        hitDamageSimMin = Math.max(
-          0,
-          totalCardDamageMin - accumulatedDamageMin,
-        );
-        hitDamageSimMax = Math.max(
-          0,
-          totalCardDamageMax - accumulatedDamageMax,
-        );
+        hitDamageSimMin = Math.max(0, totalCardDamageMin - accumulatedDamageMin);
+        hitDamageSimMax = Math.max(0, totalCardDamageMax - accumulatedDamageMax);
       } else {
         hitDamageSimMin = Math.floor(totalCardDamageMin * effectiveScale);
         hitDamageSimMax = Math.floor(totalCardDamageMax * effectiveScale);
@@ -1133,14 +535,8 @@ export const CalculationEngine = {
       provisionalDamageCounterMinRoll += hitDamageSimMin;
       provisionalDamageCounterMaxRoll += hitDamageSimMax;
 
-      let applyOverkillMinRoll =
-        hpForMinRoll <= 0 ||
-        provisionalDamageCounterMinRoll >= input.hpForMinRoll ||
-        g.overkillFlag;
-      let applyOverkillMaxRoll =
-        hpForMaxRoll <= 0 ||
-        provisionalDamageCounterMaxRoll >= input.hpForMaxRoll ||
-        g.overkillFlag;
+      let applyOverkillMinRoll = hpForMinRoll <= 0 || provisionalDamageCounterMinRoll >= input.hpForMinRoll || g.overkillFlag;
+      let applyOverkillMaxRoll = hpForMaxRoll <= 0 || provisionalDamageCounterMaxRoll >= input.hpForMaxRoll || g.overkillFlag;
 
       if (g.enemy.enemyHp !== Number.MAX_SAFE_INTEGER) {
         hpForMinRoll -= hitDamageSimMin;
@@ -1159,40 +555,18 @@ export const CalculationEngine = {
       }
 
       if (!isNonDamagingNP) {
-        let overkillAddMinRoll = applyOverkillMinRoll
-          ? STAR_GEN_OVERKILL_ADD
-          : 0.0;
-        let overkillAddMaxRoll = applyOverkillMaxRoll
-          ? STAR_GEN_OVERKILL_ADD
-          : 0.0;
-        cardStarGenMinLowChance += Math.floor(
-          Math.min(baseStarChance + overkillAddMinRoll, STAR_GEN_MAX_CHANCE) /
-            100,
-        );
-        cardStarGenMinHighChance += Math.ceil(
-          Math.min(baseStarChance + overkillAddMinRoll, STAR_GEN_MAX_CHANCE) /
-            100,
-        );
-        cardStarGenMaxLowChance += Math.floor(
-          Math.min(baseStarChance + overkillAddMaxRoll, STAR_GEN_MAX_CHANCE) /
-            100,
-        );
-        cardStarGenMaxHighChance += Math.ceil(
-          Math.min(baseStarChance + overkillAddMaxRoll, STAR_GEN_MAX_CHANCE) /
-            100,
-        );
+        let overkillAddMinRoll = applyOverkillMinRoll ? STAR_GEN_OVERKILL_ADD : 0.0;
+        let overkillAddMaxRoll = applyOverkillMaxRoll ? STAR_GEN_OVERKILL_ADD : 0.0;
+        cardStarGenMinLowChance += Math.floor(Math.min(baseStarChance + overkillAddMinRoll, STAR_GEN_MAX_CHANCE) / 100);
+        cardStarGenMinHighChance += Math.ceil(Math.min(baseStarChance + overkillAddMinRoll, STAR_GEN_MAX_CHANCE) / 100);
+        cardStarGenMaxLowChance += Math.floor(Math.min(baseStarChance + overkillAddMaxRoll, STAR_GEN_MAX_CHANCE) / 100);
+        cardStarGenMaxHighChance += Math.ceil(Math.min(baseStarChance + overkillAddMaxRoll, STAR_GEN_MAX_CHANCE) / 100);
       }
     }
 
-    let damageRGN1 = Math.floor(
-      Math.max(cardDamage * rngMin + totalFlatDamageForThisCard, 0),
-    );
-    let damageRGN2 = Math.floor(
-      Math.max(cardDamage * rngAvg + totalFlatDamageForThisCard, 0),
-    );
-    let damageRGN3 = Math.floor(
-      Math.max(cardDamage * rngMax + totalFlatDamageForThisCard, 0),
-    );
+    let damageRGN1 = Math.floor(Math.max(cardDamage * rngMin + totalFlatDamageForThisCard, 0));
+    let damageRGN2 = Math.floor(Math.max(cardDamage * rngAvg + totalFlatDamageForThisCard, 0));
+    let damageRGN3 = Math.floor(Math.max(cardDamage * rngMax + totalFlatDamageForThisCard, 0));
 
     result.totalMinDamage += damageRGN1;
     result.totalAvgDamage += damageRGN2;
@@ -1204,188 +578,61 @@ export const CalculationEngine = {
 
     let ocLevel = g.overchargeLevel;
     let npDamageStatOC = g.npDamageStatOC;
-    let ocDamageTotalMin = 0,
-      ocDamageTotalAvg = 0,
-      ocDamageTotalMax = 0;
+    let ocDamageTotalMin = 0, ocDamageTotalAvg = 0, ocDamageTotalMax = 0;
 
     let ocMechanic = servant.ocMechanicType || "standard";
     let ocDataExists = npDamageStatOC && npDamageStatOC.length >= ocLevel;
-    let triggerArashMultihit =
-      currentCardToken === "np" &&
-      ocMechanic === "arash_multihit" &&
-      ocDataExists;
-    let triggerBhimaMultihit =
-      currentCardToken === "np" &&
-      ocMechanic === "bhima_multihit" &&
-      ocDataExists &&
-      ocLevel >= 2;
+    let triggerArashMultihit = currentCardToken === "np" && ocMechanic === "arash_multihit" && ocDataExists;
+    let triggerBhimaMultihit = currentCardToken === "np" && ocMechanic === "bhima_multihit" && ocDataExists && ocLevel >= 2;
 
     if (triggerArashMultihit || triggerBhimaMultihit) {
       let ocCardDamageMultiplier = npDamageStatOC[ocLevel - 1] / 100.0;
-      if (g.npCardType === "buster")
-        ocCardDamageMultiplier *= BUSTER_CARD_MULTIPLIER;
-      else if (g.npCardType === "quick")
-        ocCardDamageMultiplier *= QUICK_CARD_MULTIPLIER;
+      if (g.npCardType === "buster") ocCardDamageMultiplier *= 1.5;
+      else if (g.npCardType === "quick") ocCardDamageMultiplier *= 0.8;
 
       let d = g.damageMods;
-      let totalAttackMod = d.attackMod + (localMods["a"] || 0.0);
-      let totalDefenceMod = d.defenceMod + (localMods["d"] || 0.0);
-      let totalPowerMod = d.powerMod + (localMods["p"] || 0.0);
-      let totalSpecialAttackMod =
-        d.specialAttackMod + (localMods["sam"] || 0.0);
-      let totalSpecialDefenceMod =
-        d.specialDefenceMod + (localMods["sdm"] || 0.0);
-      let totalNpDamageMod = d.npDamageMod + (localMods["n"] || 0.0);
+      let totalAttackMod = applyCap(d.attackMod + (localMods["a"] || 0.0), ATK_DEF_CARDMOD_LOWER_BOUND, ATK_DEF_CARDMOD_UPPER_BOUND, buffs.getFlag("nocap"));
+      let totalDefenceMod = applyCap(d.defenceMod + (localMods["d"] || 0.0), ATK_DEF_CARDMOD_LOWER_BOUND, ATK_DEF_CARDMOD_UPPER_BOUND, buffs.getFlag("nocap"));
+      let totalPowerMod = applyCap(d.powerMod + (localMods["p"] || 0.0), POWERMOD_SPECIALATKMOD_LOWER_BOUND, POWERMOD_SPECIALATKMOD_UPPER_BOUND, buffs.getFlag("nocap"));
+      let totalSpecialAttackMod = applyCap(d.specialAttackMod + (localMods["sam"] || 0.0), POWERMOD_SPECIALATKMOD_LOWER_BOUND, POWERMOD_SPECIALATKMOD_UPPER_BOUND, buffs.getFlag("nocap"));
+      let totalSpecialDefenceMod = applyCap(d.specialDefenceMod + (localMods["sdm"] || 0.0), SPECIALDEFMOD_LOWER_BOUND, SPECIALDEFMOD_UPPER_BOUND, buffs.getFlag("nocap"));
+      let totalNpDamageMod = applyCap(d.npDamageMod + (localMods["n"] || 0.0), CRITDMG_NPDMG_LOWER_BOUND, CRITDMG_NPDMG_UPPER_BOUND, buffs.getFlag("nocap"));
+      
       let cardColorModTotal = 0.0;
+      if (g.npCardType === "arts") cardColorModTotal = d.artsMod + (localMods["am"] || 0.0) + d.artsPower + (localMods["ap"] || 0.0);
+      else if (g.npCardType === "buster") cardColorModTotal = d.busterMod + (localMods["bm"] || 0.0) + d.busterPower + (localMods["bp"] || 0.0);
+      else if (g.npCardType === "quick") cardColorModTotal = d.quickMod + (localMods["qm"] || 0.0) + d.quickPower + (localMods["qp"] || 0.0);
+      cardColorModTotal = applyCap(cardColorModTotal, ATK_DEF_CARDMOD_LOWER_BOUND, ATK_DEF_CARDMOD_UPPER_BOUND, buffs.getFlag("nocap"));
 
-      if (g.npCardType === "arts")
-        cardColorModTotal =
-          d.artsMod +
-          (localMods["am"] || 0.0) +
-          d.artsPower +
-          (localMods["ap"] || 0.0);
-      else if (g.npCardType === "buster")
-        cardColorModTotal =
-          d.busterMod +
-          (localMods["bm"] || 0.0) +
-          d.busterPower +
-          (localMods["bp"] || 0.0);
-      else if (g.npCardType === "quick")
-        cardColorModTotal =
-          d.quickMod +
-          (localMods["qm"] || 0.0) +
-          d.quickPower +
-          (localMods["qp"] || 0.0);
+      let npModTotal = applyCap(totalNpDamageMod * (1.0 + d.npPowerBoost / 100.0), CRITDMG_NPDMG_LOWER_BOUND, CRITDMG_NPDMG_UPPER_BOUND, buffs.getFlag("nocap"));
 
-      let npModTotal = totalNpDamageMod * (1.0 + d.npPowerBoost / 100.0);
-      let nocap = buffs.getFlag("nocap");
+      let baseDamage = g.resolvedBaseAttack * 0.23 * g.advantages.classAtkMultiplier;
+      let totalAttackDefenseStack = Math.max(1.0 + (totalAttackMod - totalDefenceMod) / 100.0, 0.0);
+      let totalCardColorStack = ocCardDamageMultiplier * 1.0 * Math.max(1.0 + cardColorModTotal / 100.0, 0.0);
+      let totalPowerNPStack = Math.max(1.0 + totalPowerMod / 100.0 + npModTotal / 100.0, 0.001);
+      let totalSpecialDefenseModCalc = Math.max(1.0 - totalSpecialDefenceMod / 100.0, 0.0);
+      let totalSAM = Math.max(1.0 + totalSpecialAttackMod / 100.0, 0.001);
 
-      totalAttackMod = applyCap(
-        totalAttackMod,
-        ATK_DEF_CARDMOD_LOWER_BOUND,
-        ATK_DEF_CARDMOD_UPPER_BOUND,
-        nocap,
-      );
-      totalDefenceMod = applyCap(
-        totalDefenceMod,
-        ATK_DEF_CARDMOD_LOWER_BOUND,
-        ATK_DEF_CARDMOD_UPPER_BOUND,
-        nocap,
-      );
-      totalPowerMod = applyCap(
-        totalPowerMod,
-        POWERMOD_SPECIALATKMOD_LOWER_BOUND,
-        POWERMOD_SPECIALATKMOD_UPPER_BOUND,
-        nocap,
-      );
-      totalNpDamageMod = applyCap(
-        totalNpDamageMod,
-        CRITDMG_NPDMG_LOWER_BOUND,
-        CRITDMG_NPDMG_UPPER_BOUND,
-        nocap,
-      );
-      totalSpecialAttackMod = applyCap(
-        totalSpecialAttackMod,
-        POWERMOD_SPECIALATKMOD_LOWER_BOUND,
-        POWERMOD_SPECIALATKMOD_UPPER_BOUND,
-        nocap,
-      );
-      totalSpecialDefenceMod = applyCap(
-        totalSpecialDefenceMod,
-        SPECIALDEFMOD_LOWER_BOUND,
-        SPECIALDEFMOD_UPPER_BOUND,
-        nocap,
-      );
-      cardColorModTotal = applyCap(
-        cardColorModTotal,
-        ATK_DEF_CARDMOD_LOWER_BOUND,
-        ATK_DEF_CARDMOD_UPPER_BOUND,
-        nocap,
-      );
-      npModTotal = applyCap(
-        npModTotal,
-        CRITDMG_NPDMG_LOWER_BOUND,
-        CRITDMG_NPDMG_UPPER_BOUND,
-        nocap,
-      );
-
-      let baseAttack = g.resolvedBaseAttack;
-      let baseDamage =
-        baseAttack * BASE_DAMAGE_MULTIPLIER * g.advantages.classAtkMultiplier;
-      let totalAttackDefenseStack = Math.max(
-        1.0 + (totalAttackMod - totalDefenceMod) / 100.0,
-        MIN_STACK_VALUE,
-      );
-      let totalCardColorStack =
-        ocCardDamageMultiplier *
-        1.0 *
-        Math.max(1.0 + cardColorModTotal / 100.0, MIN_STACK_VALUE);
-      let totalPowerNPStack = Math.max(
-        1.0 + totalPowerMod / 100.0 + npModTotal / 100.0,
-        MIN_POWER_STACK_VALUE,
-      );
-      let totalSpecialDefenseMod = Math.max(
-        1.0 - totalSpecialDefenceMod / 100.0,
-        MIN_STACK_VALUE,
-      );
-      let totalSAM = Math.max(
-        1.0 + totalSpecialAttackMod / 100.0,
-        MIN_POWER_STACK_VALUE,
-      );
-
-      let ocBaseDamage =
-        baseDamage *
-        totalAttackDefenseStack *
-        totalCardColorStack *
-        totalPowerNPStack *
-        totalSpecialDefenseMod *
-        totalSAM *
-        1.0 *
-        g.advantages.attributeMultiplier *
-        g.advantages.classAdvantageMultiplier;
+      let ocBaseDamage = baseDamage * totalAttackDefenseStack * totalCardColorStack * totalPowerNPStack * totalSpecialDefenseModCalc * totalSAM * 1.0 * g.advantages.attributeMultiplier * g.advantages.classAdvantageMultiplier;
 
       let enemyAliveMinRoll = comparisonHpMinRoll > 0;
       if (triggerBhimaMultihit || (triggerArashMultihit && enemyAliveMinRoll)) {
         let ocProvisionalDamage = 0;
         for (let h = 0; h < numHits; h++) {
           let hitPercentage = numHits > 0 ? hitDistribution[h] : 0.0;
-          let effectiveScale =
-            hitMultiplier > 1 ? hitPercentage / hitMultiplier : hitPercentage;
+          let effectiveScale = hitMultiplier > 1 ? hitPercentage / hitMultiplier : hitPercentage;
 
-          let ocDamageRGN1_hit = Math.max(
-            (ocBaseDamage * rngMin + totalFlatDamageForThisCard) *
-              effectiveScale,
-            0.0,
-          );
+          let ocDamageRGN1_hit = Math.max((ocBaseDamage * rngMin + totalFlatDamageForThisCard) * effectiveScale, 0.0);
           ocDamageTotalMin += ocDamageRGN1_hit;
           ocProvisionalDamage += ocDamageRGN1_hit;
-          if (g.enemy.enemyHp !== Number.MAX_SAFE_INTEGER)
-            hpForMinRoll -= ocDamageRGN1_hit;
-          let applyOverkillMinRoll =
-            hpForMinRoll <= 0 ||
-            ocProvisionalDamage >= comparisonHpMinRoll ||
-            g.overkillFlag;
+          if (g.enemy.enemyHp !== Number.MAX_SAFE_INTEGER) hpForMinRoll -= ocDamageRGN1_hit;
+          let applyOverkillMinRoll = hpForMinRoll <= 0 || ocProvisionalDamage >= comparisonHpMinRoll || g.overkillFlag;
           cardRefundMin += applyOverkillMinRoll ? overkill_gain : base_gain;
-          if (applyOverkillMinRoll) {
-            cardOverkillHitsMinRoll++;
-            result.totalOverkillHitsMinRoll++;
-          }
+          if (applyOverkillMinRoll) { cardOverkillHitsMinRoll++; result.totalOverkillHitsMinRoll++; }
           if (!isNonDamagingNP) {
-            let overkillAddMinRoll = applyOverkillMinRoll
-              ? STAR_GEN_OVERKILL_ADD
-              : 0.0;
-            cardStarGenMinLowChance += Math.floor(
-              Math.min(
-                baseStarChance + overkillAddMinRoll,
-                STAR_GEN_MAX_CHANCE,
-              ) / 100,
-            );
-            cardStarGenMinHighChance += Math.ceil(
-              Math.min(
-                baseStarChance + overkillAddMinRoll,
-                STAR_GEN_MAX_CHANCE,
-              ) / 100,
-            );
+            let overkillAddMinRoll = applyOverkillMinRoll ? STAR_GEN_OVERKILL_ADD : 0.0;
+            cardStarGenMinLowChance += Math.floor(Math.min(baseStarChance + overkillAddMinRoll, STAR_GEN_MAX_CHANCE) / 100);
+            cardStarGenMinHighChance += Math.ceil(Math.min(baseStarChance + overkillAddMinRoll, STAR_GEN_MAX_CHANCE) / 100);
           }
         }
       }
@@ -1395,68 +642,35 @@ export const CalculationEngine = {
         let ocProvisionalDamage = 0;
         for (let h = 0; h < numHits; h++) {
           let hitPercentage = numHits > 0 ? hitDistribution[h] : 0.0;
-          let effectiveScale =
-            hitMultiplier > 1 ? hitPercentage / hitMultiplier : hitPercentage;
+          let effectiveScale = hitMultiplier > 1 ? hitPercentage / hitMultiplier : hitPercentage;
 
-          let ocDamageRGN3_hit = Math.max(
-            (ocBaseDamage * rngMax + totalFlatDamageForThisCard) *
-              effectiveScale,
-            0.0,
-          );
+          let ocDamageRGN3_hit = Math.max((ocBaseDamage * rngMax + totalFlatDamageForThisCard) * effectiveScale, 0.0);
           ocDamageTotalMax += ocDamageRGN3_hit;
           ocProvisionalDamage += ocDamageRGN3_hit;
-          if (g.enemy.enemyHp !== Number.MAX_SAFE_INTEGER)
-            hpForMaxRoll -= ocDamageRGN3_hit;
-          let applyOverkillMaxRoll =
-            hpForMaxRoll <= 0 ||
-            ocProvisionalDamage >= comparisonHpMaxRoll ||
-            g.overkillFlag;
+          if (g.enemy.enemyHp !== Number.MAX_SAFE_INTEGER) hpForMaxRoll -= ocDamageRGN3_hit;
+          let applyOverkillMaxRoll = hpForMaxRoll <= 0 || ocProvisionalDamage >= comparisonHpMaxRoll || g.overkillFlag;
           cardRefundMax += applyOverkillMaxRoll ? overkill_gain : base_gain;
-          if (applyOverkillMaxRoll) {
-            cardOverkillHitsMaxRoll++;
-            result.totalOverkillHitsMaxRoll++;
-          }
+          if (applyOverkillMaxRoll) { cardOverkillHitsMaxRoll++; result.totalOverkillHitsMaxRoll++; }
           if (!isNonDamagingNP) {
-            let overkillAddMaxRoll = applyOverkillMaxRoll
-              ? STAR_GEN_OVERKILL_ADD
-              : 0.0;
-            cardStarGenMaxLowChance += Math.floor(
-              Math.min(
-                baseStarChance + overkillAddMaxRoll,
-                STAR_GEN_MAX_CHANCE,
-              ) / 100,
-            );
-            cardStarGenMaxHighChance += Math.ceil(
-              Math.min(
-                baseStarChance + overkillAddMaxRoll,
-                STAR_GEN_MAX_CHANCE,
-              ) / 100,
-            );
+            let overkillAddMaxRoll = applyOverkillMaxRoll ? STAR_GEN_OVERKILL_ADD : 0.0;
+            cardStarGenMaxLowChance += Math.floor(Math.min(baseStarChance + overkillAddMaxRoll, STAR_GEN_MAX_CHANCE) / 100);
+            cardStarGenMaxHighChance += Math.ceil(Math.min(baseStarChance + overkillAddMaxRoll, STAR_GEN_MAX_CHANCE) / 100);
           }
         }
       }
 
-      if (
-        triggerBhimaMultihit ||
-        (triggerArashMultihit && comparisonHpMinRoll > 0)
-      ) {
+      if (triggerBhimaMultihit || (triggerArashMultihit && comparisonHpMinRoll > 0)) {
         for (let h = 0; h < numHits; h++) {
           let hitPercentage = numHits > 0 ? hitDistribution[h] : 0.0;
-          let effectiveScale =
-            hitMultiplier > 1 ? hitPercentage / hitMultiplier : hitPercentage;
-          ocDamageTotalAvg += Math.max(
-            (ocBaseDamage * rngAvg + totalFlatDamageForThisCard) *
-              effectiveScale,
-            0,
-          );
+          let effectiveScale = hitMultiplier > 1 ? hitPercentage / hitMultiplier : hitPercentage;
+          ocDamageTotalAvg += Math.max((ocBaseDamage * rngAvg + totalFlatDamageForThisCard) * effectiveScale, 0);
         }
       }
 
       result.totalMinDamage += Math.floor(ocDamageTotalMin);
       result.totalAvgDamage += Math.floor(ocDamageTotalAvg);
       result.totalMaxDamage += Math.floor(ocDamageTotalMax);
-      if (ocDamageTotalAvg > 0)
-        result.avgCardDamages.push(Math.floor(ocDamageTotalAvg));
+      if (ocDamageTotalAvg > 0) result.avgCardDamages.push(Math.floor(ocDamageTotalAvg));
     }
 
     let localFlatRefundRaw = localMods["fr"] || 0.0;
@@ -1498,31 +712,16 @@ export const CalculationEngine = {
     };
 
     return {
-      loopResult: result,
-      perCardResult,
-      finalHpMin: hpForMinRoll,
-      finalHpMax: hpForMaxRoll,
-      finalProvDamageMin: provisionalDamageCounterMinRoll,
-      finalProvDamageMax: provisionalDamageCounterMaxRoll,
+      loopResult: result, perCardResult, finalHpMin: hpForMinRoll, finalHpMax: hpForMaxRoll,
+      finalProvDamageMin: provisionalDamageCounterMinRoll, finalProvDamageMax: provisionalDamageCounterMaxRoll,
     };
   },
 
-  /**
-   * Identifies the Extra attack configuration and appends simulated results distinct from generic strings.
-   * @param {Object} servant - The active servant object.
-   * @param {Object} buffs - Current active buffs.
-   * @param {Object} g - Evaluated global parameters.
-   * @param {Object} chainProps - The extracted chain properties identifying structural logic.
-   * @param {CardLoopResult} priorResult - The ongoing damage accumulator prior to the Extra step.
-   * @returns {CardLoopResult} Post-extra iteration state.
-   */
   processExtraAttack(servant, buffs, g, chainProps, priorResult) {
     let result = new CardLoopResult(priorResult.hpForMaxRoll);
     result.hpForMinRoll = priorResult.hpForMinRoll;
-    result.provisionalDamageCounterMaxRoll =
-      priorResult.provisionalDamageCounterMaxRoll;
-    result.provisionalDamageCounterMinRoll =
-      priorResult.provisionalDamageCounterMinRoll;
+    result.provisionalDamageCounterMaxRoll = priorResult.provisionalDamageCounterMaxRoll;
+    result.provisionalDamageCounterMinRoll = priorResult.provisionalDamageCounterMinRoll;
     result.damagingCardCount++;
 
     let rngMin = g.rngOverride !== 0.0 ? g.rngOverride : RNG_MIN_MULTIPLIER;
@@ -1531,111 +730,46 @@ export const CalculationEngine = {
 
     let localMods = buffs.cardMods[EXTRA_ATTACK_POSITION] || {};
 
-    // --- Resolve Hierarchy ---
     let servantRates = servant.aoeRates["e"] || [100.0, 100.0, 100.0];
-    let resolvedDr =
-      localMods["dr"] !== undefined
-        ? localMods["dr"]
-        : g.damageRate !== -1.0
-          ? g.damageRate
-          : servantRates[0];
-    let resolvedNgr =
-      localMods["ngr"] !== undefined
-        ? localMods["ngr"]
-        : g.npGainRate !== -1.0
-          ? g.npGainRate
-          : servantRates[1];
-    let resolvedSgr =
-      localMods["sgr"] !== undefined
-        ? localMods["sgr"]
-        : g.starGenRate !== -1.0
-          ? g.starGenRate
-          : servantRates[2];
+    let resolvedDr = localMods["dr"] !== undefined ? localMods["dr"] : (g.damageRate !== -1.0 ? g.damageRate : servantRates[0]);
+    let resolvedNgr = localMods["ngr"] !== undefined ? localMods["ngr"] : (g.npGainRate !== -1.0 ? g.npGainRate : servantRates[1]);
+    let resolvedSgr = localMods["sgr"] !== undefined ? localMods["sgr"] : (g.starGenRate !== -1.0 ? g.starGenRate : servantRates[2]);
 
-    let extraDamage = this.calculateExtraAttackDamage(
-      servant,
-      buffs,
-      g,
-      chainProps.isBraveChainMatch,
-      chainProps.firstCardBusterBonus,
-      resolvedDr,
+    let extraDamage = DamageCalculator.calculateExtraAttackDamage(
+      servant, buffs, g, chainProps.isBraveChainMatch, chainProps.firstCardBusterBonus, resolvedDr
     );
 
-    let hitMultiplier = Math.max(
-      1,
-      Math.floor(buffs.getMod("ff") + (localMods["ff"] || 0.0)),
-    );
-    let hitDistribution = this.getExpandedHitDistribution(
-      servant,
-      g,
-      "e",
-      hitMultiplier,
-    );
+    let hitMultiplier = Math.max(1, Math.floor(buffs.getMod("ff") + (localMods["ff"] || 0.0)));
+    let hitDistribution = this.getExpandedHitDistribution(servant, g, "e", hitMultiplier);
     let numHits = hitDistribution.length;
 
     let totalFlatDamage = g.damageMods.flatDamage + (localMods["fd"] || 0.0);
-    let comparisonHpMaxRoll = result.hpForMaxRoll,
-      comparisonHpMinRoll = result.hpForMinRoll;
+    let comparisonHpMaxRoll = result.hpForMaxRoll, comparisonHpMinRoll = result.hpForMinRoll;
 
-    let hitGain_no_floor = this.calculateExtraHitRefund(
-      buffs,
-      g,
-      localMods,
-      false,
-      chainProps.firstCardArtsBonus,
-      resolvedNgr,
-    );
+    let hitGain_no_floor = RefundCalculator.calculateExtraHitRefund(buffs, g, localMods, false, chainProps.firstCardArtsBonus, resolvedNgr);
     let base_gain = Math.floor(hitGain_no_floor);
     let overkill_gain = Math.floor(base_gain * OVERKILL_MODIFIER);
 
-    let extraBaseStarChance = this.getBaseStarChance(
-      servant,
-      g,
-      localMods,
-      "e",
-      EXTRA_ATTACK_POSITION,
-      chainProps.firstCardQuickBonus,
-      false,
-      false,
-      resolvedSgr,
-    );
+    let extraBaseStarChance = StarGenCalculator.getBaseStarChance(servant, g, localMods, "e", EXTRA_ATTACK_POSITION, chainProps.firstCardQuickBonus, false, false, resolvedSgr);
 
-    let totalCardDamageMin = Math.max(
-      extraDamage * rngMin + totalFlatDamage,
-      0.0,
-    );
-    let totalCardDamageMax = Math.max(
-      extraDamage * rngMax + totalFlatDamage,
-      0.0,
-    );
+    let totalCardDamageMin = Math.max(extraDamage * rngMin + totalFlatDamage, 0.0);
+    let totalCardDamageMax = Math.max(extraDamage * rngMax + totalFlatDamage, 0.0);
 
-    let extraRefundMin = 0,
-      extraRefundMax = 0;
-    let extraStarGenMinLowChance = 0,
-      extraStarGenMaxLowChance = 0;
-    let extraStarGenMinHighChance = 0,
-      extraStarGenMaxHighChance = 0;
-    let cardOverkillHitsMinRoll = 0,
-      cardOverkillHitsMaxRoll = 0;
-    let accumulatedDamageMin = 0,
-      accumulatedDamageMax = 0;
+    let extraRefundMin = 0, extraRefundMax = 0;
+    let extraStarGenMinLowChance = 0, extraStarGenMaxLowChance = 0;
+    let extraStarGenMinHighChance = 0, extraStarGenMaxHighChance = 0;
+    let cardOverkillHitsMinRoll = 0, cardOverkillHitsMaxRoll = 0;
+    let accumulatedDamageMin = 0, accumulatedDamageMax = 0;
 
     for (let h = 0; h < numHits; h++) {
       let rawPercentage = numHits > 0 ? hitDistribution[h] : 0.0;
-      let effectiveScale =
-        hitMultiplier > 1 ? rawPercentage / hitMultiplier : rawPercentage;
+      let effectiveScale = hitMultiplier > 1 ? rawPercentage / hitMultiplier : rawPercentage;
 
       let hitDamageSimMin, hitDamageSimMax;
 
       if (h === numHits - 1) {
-        hitDamageSimMin = Math.max(
-          0,
-          totalCardDamageMin - accumulatedDamageMin,
-        );
-        hitDamageSimMax = Math.max(
-          0,
-          totalCardDamageMax - accumulatedDamageMax,
-        );
+        hitDamageSimMin = Math.max(0, totalCardDamageMin - accumulatedDamageMin);
+        hitDamageSimMax = Math.max(0, totalCardDamageMax - accumulatedDamageMax);
       } else {
         hitDamageSimMin = Math.floor(totalCardDamageMin * effectiveScale);
         hitDamageSimMax = Math.floor(totalCardDamageMax * effectiveScale);
@@ -1647,14 +781,8 @@ export const CalculationEngine = {
       result.provisionalDamageCounterMinRoll += hitDamageSimMin;
       result.provisionalDamageCounterMaxRoll += hitDamageSimMax;
 
-      let applyOverkillMinRoll =
-        result.hpForMinRoll <= 0 ||
-        result.provisionalDamageCounterMinRoll >= comparisonHpMinRoll ||
-        g.overkillFlag;
-      let applyOverkillMaxRoll =
-        result.hpForMaxRoll <= 0 ||
-        result.provisionalDamageCounterMaxRoll >= comparisonHpMaxRoll ||
-        g.overkillFlag;
+      let applyOverkillMinRoll = result.hpForMinRoll <= 0 || result.provisionalDamageCounterMinRoll >= comparisonHpMinRoll || g.overkillFlag;
+      let applyOverkillMaxRoll = result.hpForMaxRoll <= 0 || result.provisionalDamageCounterMaxRoll >= comparisonHpMaxRoll || g.overkillFlag;
 
       if (g.enemy.enemyHp !== Number.MAX_SAFE_INTEGER) {
         result.hpForMinRoll -= hitDamageSimMin;
@@ -1672,37 +800,13 @@ export const CalculationEngine = {
         cardOverkillHitsMaxRoll++;
       }
 
-      let overkillAddMinRoll = applyOverkillMinRoll
-        ? STAR_GEN_OVERKILL_ADD
-        : 0.0;
-      let overkillAddMaxRoll = applyOverkillMaxRoll
-        ? STAR_GEN_OVERKILL_ADD
-        : 0.0;
+      let overkillAddMinRoll = applyOverkillMinRoll ? STAR_GEN_OVERKILL_ADD : 0.0;
+      let overkillAddMaxRoll = applyOverkillMaxRoll ? STAR_GEN_OVERKILL_ADD : 0.0;
 
-      extraStarGenMinLowChance += Math.floor(
-        Math.min(
-          extraBaseStarChance + overkillAddMinRoll,
-          STAR_GEN_MAX_CHANCE,
-        ) / 100,
-      );
-      extraStarGenMinHighChance += Math.ceil(
-        Math.min(
-          extraBaseStarChance + overkillAddMinRoll,
-          STAR_GEN_MAX_CHANCE,
-        ) / 100,
-      );
-      extraStarGenMaxLowChance += Math.floor(
-        Math.min(
-          extraBaseStarChance + overkillAddMaxRoll,
-          STAR_GEN_MAX_CHANCE,
-        ) / 100,
-      );
-      extraStarGenMaxHighChance += Math.ceil(
-        Math.min(
-          extraBaseStarChance + overkillAddMaxRoll,
-          STAR_GEN_MAX_CHANCE,
-        ) / 100,
-      );
+      extraStarGenMinLowChance += Math.floor(Math.min(extraBaseStarChance + overkillAddMinRoll, STAR_GEN_MAX_CHANCE) / 100);
+      extraStarGenMinHighChance += Math.ceil(Math.min(extraBaseStarChance + overkillAddMinRoll, STAR_GEN_MAX_CHANCE) / 100);
+      extraStarGenMaxLowChance += Math.floor(Math.min(extraBaseStarChance + overkillAddMaxRoll, STAR_GEN_MAX_CHANCE) / 100);
+      extraStarGenMaxHighChance += Math.ceil(Math.min(extraBaseStarChance + overkillAddMaxRoll, STAR_GEN_MAX_CHANCE) / 100);
     }
 
     let localFlatRefundRaw = localMods["fr"] || 0.0;
@@ -1721,15 +825,9 @@ export const CalculationEngine = {
     result.totalStarGenMaxRollLowChance += extraStarGenMaxLowChance;
     result.totalStarGenMaxRollHighChance += extraStarGenMaxHighChance;
 
-    let damageRGN1 = Math.floor(
-      Math.max(extraDamage * rngMin + totalFlatDamage, 0),
-    );
-    let damageRGN2 = Math.floor(
-      Math.max(extraDamage * rngAvg + totalFlatDamage, 0),
-    );
-    let damageRGN3 = Math.floor(
-      Math.max(extraDamage * rngMax + totalFlatDamage, 0),
-    );
+    let damageRGN1 = Math.floor(Math.max(extraDamage * rngMin + totalFlatDamage, 0));
+    let damageRGN2 = Math.floor(Math.max(extraDamage * rngAvg + totalFlatDamage, 0));
+    let damageRGN3 = Math.floor(Math.max(extraDamage * rngMax + totalFlatDamage, 0));
 
     result.perCardResults.push({
       cardToken: "EXTRA",
@@ -1754,582 +852,5 @@ export const CalculationEngine = {
     result.avgCardDamages.push(damageRGN2);
 
     return result;
-  },
-
-  /**
-   * Solves for the un-randomized maximum mathematical float damage limit inherent to a single non-extra card strike.
-   * @param {Object} servant - The active servant object.
-   * @param {Object} buffs - Current active buffs.
-   * @param {Object} g - Evaluated global parameters.
-   * @param {string} currentCardToken - Identifier characterizing the attack form.
-   * @param {number} actualPosition - Ordered location of this strike in the chain.
-   * @param {number} firstCardBonus - Retained bonus modifiers.
-   * @returns {number} Pure theoretical card damage.
-   */
-  calculateSingleCardDamage(
-    servant,
-    buffs,
-    g,
-    currentCardToken,
-    actualPosition,
-    firstCardBonus,
-    resolvedDr, // <--- Accepts resolved rate
-  ) {
-    let localMods = buffs.cardMods[actualPosition] || {};
-    let localFlags = buffs.cardFlags[actualPosition] || {};
-
-    let isNp = currentCardToken === "np";
-    let isCrit = (buffs.getFlag("crit") || localFlags["crit"]) && !isNp;
-
-    let currentFouPawAttack = isNp
-      ? 0
-      : g.fouPawAttack + (localMods["fp"] || 0.0);
-    let effectiveFirstCardBonus = isNp ? 0.0 : firstCardBonus;
-    let positionMultiplier = isNp
-      ? 1.0
-      : actualPosition >= 1 && actualPosition <= 3
-        ? POSITION_MULTIPLIERS[actualPosition]
-        : 1.0;
-
-    let cardDamageMultiplier;
-    if (isNp) {
-      let d = g.damageMods;
-      if (d.npDamageOverride !== 0.0) {
-        cardDamageMultiplier = d.npDamageOverride / 100.0;
-      } else {
-        let npLevel = Math.floor(d.npLevelValue || DEFAULT_NP_LEVEL);
-        if (npLevel <= 0 || npLevel > MAX_NP_LEVEL) npLevel = DEFAULT_NP_LEVEL;
-        let npMod =
-          g.npDamageStat && g.npDamageStat.length >= npLevel
-            ? g.npDamageStat[npLevel - 1]
-            : 0.0;
-        cardDamageMultiplier = npMod / 100.0;
-      }
-      if (g.npCardType === "buster")
-        cardDamageMultiplier *= BUSTER_CARD_MULTIPLIER;
-      else if (g.npCardType === "quick")
-        cardDamageMultiplier *= QUICK_CARD_MULTIPLIER;
-    } else {
-      switch (currentCardToken) {
-        case "a":
-          cardDamageMultiplier = ARTS_CARD_MULTIPLIER;
-          break;
-        case "b":
-          cardDamageMultiplier = BUSTER_CARD_MULTIPLIER;
-          break;
-        case "q":
-          cardDamageMultiplier = QUICK_CARD_MULTIPLIER;
-          break;
-        default:
-          console.warn(`Unknown card token encountered: ${currentCardToken}`);
-          return 0.0;
-      }
-    }
-
-    return this.applyCapsAndGetFinalDamage(
-      g.damageMods,
-      localMods,
-      buffs.getFlag("nocap"),
-      g,
-      effectiveFirstCardBonus,
-      cardDamageMultiplier,
-      positionMultiplier,
-      currentFouPawAttack,
-      isCrit,
-      currentCardToken,
-      resolvedDr,
-    );
-  },
- /**
-   * Distributes FGO hard caps cleanly prior to establishing final math parameters.
-   * @param {Object} d - Core damage modification tree.
-   * @param {Object} localMods - Positional sub-modifiers specific to the current strike.
-   * @param {boolean} nocap - Bypass flag terminating hard-cap constraints.
-   * @param {Object} g - Evaluated global parameters.
-   * @param {number} firstCardBonus - The initial chain trigger multiplier.
-   * @param {number} cardDamageMultiplier - Base scale factor inherent to card form.
-   * @param {number} positionMultiplier - Secondary position scale factor.
-   * @param {number} currentFouPawAttack - Resolved flat attack additive from Fou Paw values.
-   * @param {boolean} isCrit - If calculation evaluates critical variables.
-   * @param {string} cardType - Identifying string token.
-   * @returns {number} Fully evaluated and capped integer prediction logic.
-   */
-  applyCapsAndGetFinalDamage(
-    d,
-    localMods,
-    nocap,
-    g,
-    firstCardBonus,
-    cardDamageMultiplier,
-    positionMultiplier,
-    currentFouPawAttack,
-    isCrit,
-    cardType,
-    resolvedDr, // <--- Accepts resolved rate
-  ) {
-    let totalAttackMod = applyCap(
-      d.attackMod + (localMods["a"] || 0.0),
-      ATK_DEF_CARDMOD_LOWER_BOUND,
-      ATK_DEF_CARDMOD_UPPER_BOUND,
-      nocap,
-    );
-    let totalDefenceMod = applyCap(
-      d.defenceMod + (localMods["d"] || 0.0),
-      ATK_DEF_CARDMOD_LOWER_BOUND,
-      ATK_DEF_CARDMOD_UPPER_BOUND,
-      nocap,
-    );
-    let totalPowerMod = applyCap(
-      d.powerMod + (localMods["p"] || 0.0),
-      POWERMOD_SPECIALATKMOD_LOWER_BOUND,
-      POWERMOD_SPECIALATKMOD_UPPER_BOUND,
-      nocap,
-    );
-    let totalNpDamageMod = applyCap(
-      d.npDamageMod + (localMods["n"] || 0.0),
-      CRITDMG_NPDMG_LOWER_BOUND,
-      CRITDMG_NPDMG_UPPER_BOUND,
-      nocap,
-    );
-    let totalSpecialDefenceMod = applyCap(
-      d.specialDefenceMod + (localMods["sdm"] || 0.0),
-      SPECIALDEFMOD_LOWER_BOUND,
-      SPECIALDEFMOD_UPPER_BOUND,
-      nocap,
-    );
-    let totalSpecialAttackMod = applyCap(
-      d.specialAttackMod + (localMods["sam"] || 0.0),
-      POWERMOD_SPECIALATKMOD_LOWER_BOUND,
-      POWERMOD_SPECIALATKMOD_UPPER_BOUND,
-      nocap,
-    );
-    let totalGlobalCritDamageMod = d.critDamageMod + (localMods["cd"] || 0.0);
-
-    let cardColorModTotal = 0,
-      colorSpecificCritBonus = 0,
-      npModTotal = 0,
-      seMod = 1.0;
-
-    switch (cardType) {
-      case "a":
-        cardColorModTotal =
-          d.artsMod +
-          (localMods["am"] || 0.0) +
-          (d.artsPower + (localMods["ap"] || 0.0));
-        colorSpecificCritBonus =
-          d.artsCritDamageMod + (localMods["acd"] || 0.0);
-        break;
-      case "b":
-        cardColorModTotal =
-          d.busterMod +
-          (localMods["bm"] || 0.0) +
-          (d.busterPower + (localMods["bp"] || 0.0));
-        colorSpecificCritBonus =
-          d.busterCritDamageMod + (localMods["bcd"] || 0.0);
-        break;
-      case "q":
-        cardColorModTotal =
-          d.quickMod +
-          (localMods["qm"] || 0.0) +
-          (d.quickPower + (localMods["qp"] || 0.0));
-        colorSpecificCritBonus =
-          d.quickCritDamageMod + (localMods["qcd"] || 0.0);
-        break;
-      case "np":
-        if (g.npCardType === "arts")
-          cardColorModTotal =
-            d.artsMod +
-            (localMods["am"] || 0.0) +
-            (d.artsPower + (localMods["ap"] || 0.0));
-        else if (g.npCardType === "buster")
-          cardColorModTotal =
-            d.busterMod +
-            (localMods["bm"] || 0.0) +
-            (d.busterPower + (localMods["bp"] || 0.0));
-        else if (g.npCardType === "quick")
-          cardColorModTotal =
-            d.quickMod +
-            (localMods["qm"] || 0.0) +
-            (d.quickPower + (localMods["qp"] || 0.0));
-        npModTotal = totalNpDamageMod * (1.0 + d.npPowerBoost / 100.0);
-        let localSe = localMods["se"] || 0.0;
-        if (localSe > 0.0) seMod = localSe;
-        else if (d.superEffectiveMod > 0.0) seMod = d.superEffectiveMod;
-        break;
-    }
-
-    cardColorModTotal = applyCap(
-      cardColorModTotal,
-      ATK_DEF_CARDMOD_LOWER_BOUND,
-      ATK_DEF_CARDMOD_UPPER_BOUND,
-      nocap,
-    );
-    npModTotal = applyCap(
-      npModTotal,
-      CRITDMG_NPDMG_LOWER_BOUND,
-      CRITDMG_NPDMG_UPPER_BOUND,
-      nocap,
-    );
-
-    let totalCritDamageMod = applyCap(
-      totalGlobalCritDamageMod + colorSpecificCritBonus,
-      CRITDMG_NPDMG_LOWER_BOUND,
-      CRITDMG_NPDMG_UPPER_BOUND,
-      nocap,
-    );
-    let critDamageStackPercentage = isCrit ? totalCritDamageMod / 100.0 : 0.0;
-    let finalCritFactor = isCrit ? BASE_CRIT_DAMAGE_FACTOR : 1.0;
-
-    let baseAttack = g.resolvedBaseAttack + currentFouPawAttack;
-    let baseDamage =
-      baseAttack * BASE_DAMAGE_MULTIPLIER * g.advantages.classAtkMultiplier;
-
-    let totalAttackDefenseStack = Math.max(
-      1.0 + (totalAttackMod - totalDefenceMod) / 100.0,
-      MIN_STACK_VALUE,
-    );
-    let totalCardColorStack =
-      firstCardBonus +
-      cardDamageMultiplier *
-        positionMultiplier *
-        Math.max(1.0 + cardColorModTotal / 100.0, MIN_STACK_VALUE);
-    let totalPowerNPStack = Math.max(
-      (1.0 +
-        totalPowerMod / 100.0 +
-        npModTotal / 100.0 +
-        critDamageStackPercentage) *
-        finalCritFactor,
-      MIN_POWER_STACK_VALUE,
-    );
-    let totalSpecialDefenseMod = Math.max(
-      1.0 - totalSpecialDefenceMod / 100.0,
-      MIN_STACK_VALUE,
-    );
-    let totalSAM = Math.max(
-      1.0 + totalSpecialAttackMod / 100.0,
-      MIN_POWER_STACK_VALUE,
-    );
-    let totalSuperEffectiveMod =
-      cardType === "np" && seMod > 1.0 ? seMod / 100.0 : 1.0;
-
-    let finalDamageRateMod = resolvedDr / 100.0;
-
-    return (
-      baseDamage *
-      totalAttackDefenseStack *
-      totalCardColorStack *
-      totalPowerNPStack *
-      totalSpecialDefenseMod *
-      totalSAM *
-      totalSuperEffectiveMod *
-      g.advantages.attributeMultiplier *
-      g.advantages.classAdvantageMultiplier *
-      finalDamageRateMod
-    );
-  },
-
- /**
-   * Applies Brave Chain logic to scale the distinct parameters generated in the fourth (Extra) position.
-   * @param {Object} servant - The active servant object.
-   * @param {Object} buffs - Current active buffs.
-   * @param {Object} g - Evaluated global parameters.
-   * @param {boolean} isBraveChainMatch - Whether the preconditions for matching colors triggers higher scaling.
-   * @param {number} firstCardBonus - Extracted primary bonus integer.
-   * @returns {number} The raw, unrounded base attack scaling value for this specific strike.
-   */
-  calculateExtraAttackDamage(
-    servant,
-    buffs,
-    g,
-    isBraveChainMatch,
-    firstCardBonus,
-    resolvedDr, // <--- Accepts resolved rate
-  ) {
-    let classAtkMultiplier = g.advantages.classAtkMultiplier;
-    let localMods = buffs.cardMods[EXTRA_ATTACK_POSITION] || {};
-    let d = g.damageMods;
-    let nocap = buffs.getFlag("nocap");
-
-    let totalAttackMod = applyCap(
-      d.attackMod + (localMods["a"] || 0.0),
-      ATK_DEF_CARDMOD_LOWER_BOUND,
-      ATK_DEF_CARDMOD_UPPER_BOUND,
-      nocap,
-    );
-    let totalDefenceMod = applyCap(
-      d.defenceMod + (localMods["d"] || 0.0),
-      ATK_DEF_CARDMOD_LOWER_BOUND,
-      ATK_DEF_CARDMOD_UPPER_BOUND,
-      nocap,
-    );
-    let totalExtraMod = applyCap(
-      d.extraMod + (localMods["em"] || 0.0),
-      ATK_DEF_CARDMOD_LOWER_BOUND,
-      ATK_DEF_CARDMOD_UPPER_BOUND,
-      nocap,
-    );
-    let totalExtraPower = applyCap(
-      d.extraPower + (localMods["ep"] || 0.0),
-      CRITDMG_NPDMG_LOWER_BOUND,
-      CRITDMG_NPDMG_UPPER_BOUND,
-      nocap,
-    );
-    let totalPowerMod = applyCap(
-      d.powerMod + (localMods["p"] || 0.0),
-      POWERMOD_SPECIALATKMOD_LOWER_BOUND,
-      POWERMOD_SPECIALATKMOD_UPPER_BOUND,
-      nocap,
-    );
-    let totalSpecialDefenceMod = applyCap(
-      d.specialDefenceMod + (localMods["sdm"] || 0.0),
-      SPECIALDEFMOD_LOWER_BOUND,
-      SPECIALDEFMOD_UPPER_BOUND,
-      nocap,
-    );
-    let totalSpecialAttackMod = applyCap(
-      d.specialAttackMod + (localMods["sam"] || 0.0),
-      POWERMOD_SPECIALATKMOD_LOWER_BOUND,
-      POWERMOD_SPECIALATKMOD_UPPER_BOUND,
-      nocap,
-    );
-
-    let cardColorModTotal = applyCap(
-      totalExtraMod + totalExtraPower,
-      ATK_DEF_CARDMOD_LOWER_BOUND,
-      ATK_DEF_CARDMOD_UPPER_BOUND,
-      nocap,
-    );
-
-    let extraAttackMultiplier =
-      g.extraCardModOverride !== 0.0
-        ? g.extraCardModOverride
-        : isBraveChainMatch
-          ? BRAVE_CHAIN_EXTRA_MULTIPLIER
-          : EXTRA_ATTACK_MULTIPLIER;
-
-    let baseAttack = g.resolvedBaseAttack;
-    let baseDamage =
-      baseAttack *
-      BASE_DAMAGE_MULTIPLIER *
-      extraAttackMultiplier *
-      classAtkMultiplier;
-
-    let totalAttackDefenseStack = Math.max(
-      1.0 + (totalAttackMod - totalDefenceMod) / 100.0,
-      MIN_STACK_VALUE,
-    );
-    let totalPowerExtraStack = Math.max(
-      1.0 + totalPowerMod / 100.0,
-      MIN_POWER_STACK_VALUE,
-    );
-    let totalCardColorStack =
-      firstCardBonus +
-      Math.max(1.0 + cardColorModTotal / 100.0, MIN_STACK_VALUE);
-    let totalSpecialDefenseMod = Math.max(
-      1.0 - totalSpecialDefenceMod / 100.0,
-      MIN_STACK_VALUE,
-    );
-    let totalSAM = Math.max(
-      1.0 + totalSpecialAttackMod / 100.0,
-      MIN_POWER_STACK_VALUE,
-    );
-
-    let finalDamageRateMod = resolvedDr / 100.0;
-
-    return (
-      baseDamage *
-      totalAttackDefenseStack *
-      totalCardColorStack *
-      totalPowerExtraStack *
-      totalSpecialDefenseMod *
-      totalSAM *
-      g.advantages.attributeMultiplier *
-      g.advantages.classAdvantageMultiplier *
-      finalDamageRateMod
-    );
-  },
-
-/**
-   * Distributes mathematical logic necessary to find exact decimal values for internal NP regeneration per standard strike.
-   * @param {Object} buffs - Current active buffs.
-   * @param {Object} g - Evaluated global parameters.
-   * @param {Object} localMods - Positional sub-modifiers mapping.
-   * @param {string} currentCardToken - Identifying string token.
-   * @param {number} actualPosition - Ordered location of this strike in the chain.
-   * @param {number} artsFirstCardBonus - Chained multiplier additive.
-   * @param {boolean} isCrit - Evaluation flag.
-   * @returns {number} Non-floored numerical value corresponding to returned base charge.
-   */
-  calculateSingleHitRefund(
-    buffs,
-    g,
-    localMods,
-    currentCardToken,
-    actualPosition,
-    artsFirstCardBonus,
-    isCrit,
-    resolvedNgr, // <--- Accepts resolved rate
-  ) {
-    let nocap = buffs.getFlag("nocap");
-    let cardBaseNpValue = 0.0;
-    let cardMod = 0.0;
-    let posMod =
-      actualPosition >= 1 && actualPosition <= 3
-        ? NP_POSITION_MULTIPLIERS[actualPosition]
-        : 1.0;
-    let cardSpecificNpGainMod = 0.0;
-    let baseNpRate;
-
-    switch (currentCardToken) {
-      case "a":
-        cardBaseNpValue = ARTS_CARD_NP_VALUE;
-        cardMod = g.damageMods.artsMod + (localMods["am"] || 0.0);
-        baseNpRate = g.npRateCard;
-        cardSpecificNpGainMod =
-          g.npGainMods.artsNpGainMod + (localMods["ang"] || 0.0);
-        break;
-      case "b":
-        cardBaseNpValue = BUSTER_CARD_NP_VALUE;
-        cardMod = g.damageMods.busterMod + (localMods["bm"] || 0.0);
-        baseNpRate = g.npRateCard;
-        cardSpecificNpGainMod =
-          g.npGainMods.busterNpGainMod + (localMods["bng"] || 0.0);
-        break;
-      case "q":
-        cardBaseNpValue = QUICK_CARD_NP_VALUE;
-        cardMod = g.damageMods.quickMod + (localMods["qm"] || 0.0);
-        baseNpRate = g.npRateCard;
-        cardSpecificNpGainMod =
-          g.npGainMods.quickNpGainMod + (localMods["qng"] || 0.0);
-        break;
-      case "np":
-        posMod = 1.0;
-        baseNpRate = g.npRateNP;
-
-        let npLevel = Math.floor(g.damageMods.npLevelValue || DEFAULT_NP_LEVEL);
-        if (npLevel <= 0 || npLevel > MAX_NP_LEVEL) npLevel = DEFAULT_NP_LEVEL;
-        let npDamageOverride = g.damageMods.npDamageOverride;
-        let npDamageMod =
-          g.npDamageStat && g.npDamageStat.length >= npLevel
-            ? g.npDamageStat[npLevel - 1]
-            : 0.0;
-
-        let isNonDamagingNP = npDamageOverride === 0.0 && npDamageMod === 0.0;
-        if (isNonDamagingNP) {
-          cardBaseNpValue = 0.0;
-          cardMod = 0.0;
-        } else {
-          if (g.npCardType === "arts") {
-            cardBaseNpValue = ARTS_CARD_NP_VALUE;
-            cardMod = g.damageMods.artsMod + (localMods["am"] || 0.0);
-            cardSpecificNpGainMod =
-              g.npGainMods.artsNpGainMod + (localMods["ang"] || 0.0);
-          } else if (g.npCardType === "quick") {
-            cardBaseNpValue = QUICK_CARD_NP_VALUE;
-            cardMod = g.damageMods.quickMod + (localMods["qm"] || 0.0);
-            cardSpecificNpGainMod =
-              g.npGainMods.quickNpGainMod + (localMods["qng"] || 0.0);
-          } else {
-            cardBaseNpValue = BUSTER_CARD_NP_VALUE;
-            cardMod = g.damageMods.busterMod + (localMods["bm"] || 0.0);
-            cardSpecificNpGainMod =
-              g.npGainMods.busterNpGainMod + (localMods["bng"] || 0.0);
-          }
-        }
-        break;
-      default:
-        baseNpRate = g.npRateCard;
-    }
-
-    let totalNpGainMod =
-      g.npGainMods.npGainMod + (localMods["ng"] || 0.0) + cardSpecificNpGainMod;
-
-    cardMod = applyCap(
-      cardMod,
-      ATK_DEF_CARDMOD_LOWER_BOUND,
-      ATK_DEF_CARDMOD_UPPER_BOUND,
-      nocap,
-    );
-    totalNpGainMod = applyCap(
-      totalNpGainMod,
-      CRITDMG_NPDMG_LOWER_BOUND,
-      CRITDMG_NPDMG_UPPER_BOUND,
-      nocap,
-    );
-
-    let cardModVal = cardMod / 100.0;
-    let npGainModVal = totalNpGainMod / 100.0;
-
-    let cardNpValue = cardBaseNpValue * posMod;
-    let enemyModVal = g.npGainMods.enemyServerMod;
-    let critModVal = isCrit ? 2.0 : 1.0;
-    let finalArtsFirstBonus =
-      currentCardToken === "np" ? 0.0 : artsFirstCardBonus;
-
-    let finalNpGainRateMod = resolvedNgr / 100.0;
-
-    return (
-      baseNpRate *
-      (finalArtsFirstBonus + cardNpValue * (1.0 + cardModVal)) *
-      enemyModVal *
-      (1.0 + npGainModVal) *
-      critModVal *
-      finalNpGainRateMod
-    );
-  },
-
-/**
-   * Translates distinct mechanics inherent solely to Extra card actions into gauge charge values.
-   * @param {Object} buffs - Current active buffs.
-   * @param {Object} g - Evaluated global parameters.
-   * @param {Object} localMods - Positional sub-modifiers specific to position four.
-   * @param {boolean} isCrit - Evaluation flag.
-   * @param {number} artsFirstCardBonus - Chained multiplier additive.
-   * @returns {number} Non-floored numerical value corresponding to returned base charge.
-   */
-  
-  calculateExtraHitRefund(
-    buffs,
-    g,
-    localMods,
-    isCrit,
-    artsFirstCardBonus,
-    resolvedNgr,
-  ) {
-    let nocap = buffs.getFlag("nocap");
-    let cardNpValue = EXTRA_CARD_NP_VALUE;
-
-    let cardMod = g.damageMods.extraMod + (localMods["em"] || 0.0);
-    let totalNpGainMod = g.npGainMods.npGainMod + (localMods["ng"] || 0.0);
-
-    cardMod = applyCap(
-      cardMod,
-      ATK_DEF_CARDMOD_LOWER_BOUND,
-      ATK_DEF_CARDMOD_UPPER_BOUND,
-      nocap,
-    );
-    totalNpGainMod = applyCap(
-      totalNpGainMod,
-      CRITDMG_NPDMG_LOWER_BOUND,
-      CRITDMG_NPDMG_UPPER_BOUND,
-      nocap,
-    );
-
-    let cardModVal = cardMod / 100.0;
-    let npGainModVal = totalNpGainMod / 100.0;
-
-    let enemyModVal = g.npGainMods.enemyServerMod;
-    let critModVal = isCrit ? 2.0 : 1.0;
-
-    let finalNpGainRateMod = resolvedNgr / 100.0;
-
-    return (
-      g.npRateCard *
-      (artsFirstCardBonus + cardNpValue * (1.0 + cardModVal)) *
-      enemyModVal *
-      (1.0 + npGainModVal) *
-      critModVal *
-      finalNpGainRateMod
-    );
-  },
+  }
 };

@@ -1,8 +1,9 @@
 /**
  * @file GameDataLoader.js
- * Handles the asynchronous loading, normalization, and caching of static game data.
- * Serves as the single source of truth for base servant stats, aliases, and relations.
+ * @description Handles the asynchronous loading, normalization, and caching of static JSON game data.
+ * Serves as the single source of truth for base servant stats, aliases, and mathematical relations.
  */
+
 export const GameDataLoader = {
   CLASS_ATTACK_MODIFIERS: {},
   ATTRIBUTE_RELATIONS: {},
@@ -13,8 +14,8 @@ export const GameDataLoader = {
   ALIASES: {},
 
   /**
-   * Fetches required JSON configuration bundles sequentially binding alias trees.
-   * Required initiation sequence bridging UI to the mathematical runtime.
+   * Fetches required JSON configuration bundles and sequentially binds alias trees.
+   * Required initiation sequence bridging the UI to the mathematical runtime.
    * @returns {Promise<void>} Resolves upon successful completion of network fetches.
    */
   async initialize() {
@@ -73,10 +74,10 @@ export const GameDataLoader = {
   },
 
   /**
-   * Promisifies file IO preventing fatal execution halt over disconnected resources.
+   * Safely fetches and parses a JSON file, returning a fallback on failure.
    * @param {string} url - Intended destination file path.
-   * @param {*} fallback - Generic definition instantiated upon critical failure.
-   * @returns {Promise<*>} Retrieved dictionary format matching JSON content.
+   * @param {*} fallback - Generic definition instantiated upon network failure.
+   * @returns {Promise<*>} Retrieved dictionary or array.
    */
   async fetchJson(url, fallback) {
     try {
@@ -90,8 +91,8 @@ export const GameDataLoader = {
   },
 
   /**
-   * Truncates capitalization ensuring predictable identifier mapping.
-   * @param {Object} obj - Abstract dictionary configuration block.
+   * Normalizes dictionary keys to lowercase for predictable mapping.
+   * @param {Object} obj - Dictionary configuration block.
    * @returns {Object} Translated block holding exclusive lowercase assignments.
    */
   lowercaseKeys(obj) {
@@ -101,7 +102,7 @@ export const GameDataLoader = {
   },
 
   /**
-   * Truncates deeply nested strings mapped recursively.
+   * Normalizes nested dictionary keys to lowercase recursively.
    * @param {Object} obj - Encapsulated parameter object.
    * @returns {Object} Translated block normalized recursively.
    */
@@ -113,9 +114,9 @@ export const GameDataLoader = {
   },
 
   /**
-   * Instantiates formatted records capturing mechanical constants relevant to execution scopes.
-   * @param {Object} data - Raw server response capturing Servant constraints.
-   * @returns {Object} Normalized class representation.
+   * Instantiates formatted records capturing mechanical constants for a specific Servant.
+   * @param {Object} data - Raw JSON block defining a Servant.
+   * @returns {Object} Normalized Servant data structure.
    */
   createServantRecord(data) {
     const convertHitDist = (arr) => (arr ? arr.map((x) => x / 100.0) : []);

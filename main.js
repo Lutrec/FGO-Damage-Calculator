@@ -1,20 +1,19 @@
-import {GameDataLoader} from "./GameDataLoader.js";
-import {WaveOrchestrator} from "./WaveOrchestrator.js";
-
 /**
  * @file main.js
- * The Frontend Controller & UI Renderer.
- * Manages DOM manipulation, parses inputs via the Calculation Engine, caches chat history
- * via localStorage, and generates interactive Discord-style HTML embeds.
+ * @description The Frontend Controller & UI Renderer.
+ * Manages DOM manipulation, executes input parsing via the Calculation Engine, 
+ * handles local storage chat history, and renders the Discord-style HTML output.
  */
+
+import { GameDataLoader } from "./GameDataLoader.js";
+import { WaveOrchestrator } from "./WaveOrchestrator.js";
 
 document.addEventListener("DOMContentLoaded", async () => {
   const calcInput = document.getElementById("calcInput");
   const chatContainer = document.getElementById("chatContainer");
 
   const BOT_AVATAR = "./assets/wickedNero.png";
-  const USER_AVATAR =
-    "https://static.atlasacademy.io/JP/MasterFace/equip00441.png";
+  const USER_AVATAR = "https://static.atlasacademy.io/JP/MasterFace/equip00441.png";
 
   let history = JSON.parse(localStorage.getItem("fgoCalcHistory")) || [];
 
@@ -23,9 +22,7 @@ document.addEventListener("DOMContentLoaded", async () => {
    * Restricts queue to 100 historical instances mitigating execution drag.
    */
   function saveState() {
-    if (history.length > 100) {
-      history = history.slice(-100);
-    }
+    if (history.length > 100) history = history.slice(-100);
     localStorage.setItem("fgoCalcHistory", JSON.stringify(history));
   }
 
@@ -40,28 +37,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       history = [];
       chatContainer.innerHTML = "";
       calcInput.style.height = "auto";
-      appendBotMessage(
-        "Chat history cleared. Ready for new calculations!",
-        false,
-        null,
-        false,
-      );
+      appendBotMessage("Chat history cleared. Ready for new calculations!", false, null, false);
     }
   });
 
-  helpBtn.addEventListener("click", () => {
-    helpModal.style.display = "flex";
-  });
-
-  closeModalBtn.addEventListener("click", () => {
-    helpModal.style.display = "none";
-  });
-
-  window.addEventListener("click", (e) => {
-    if (e.target === helpModal) {
-      helpModal.style.display = "none";
-    }
-  });
+  helpBtn.addEventListener("click", () => helpModal.style.display = "flex");
+  closeModalBtn.addEventListener("click", () => helpModal.style.display = "none");
+  window.addEventListener("click", (e) => { if (e.target === helpModal) helpModal.style.display = "none"; });
 
   const sendBtn = document.getElementById("sendBtn");
 
@@ -72,43 +54,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     calcInput.placeholder = "Message #fgo-calculator (e.g., nero a44 am30)";
 
     history.forEach((item) => {
-      if (item.type === "bot")
-        appendBotMessage(item.text, item.isError, item.time, false);
-      else if (item.type === "user")
-        appendUserMessage(item.text, item.time, false);
-      else if (item.type === "embed")
-        appendCalculationEmbed(item.waves, item.time, false);
+      if (item.type === "bot") appendBotMessage(item.text, item.isError, item.time, false);
+      else if (item.type === "user") appendUserMessage(item.text, item.time, false);
+      else if (item.type === "embed") appendCalculationEmbed(item.waves, item.time, false);
     });
 
-    appendBotMessage(
-      "Data loaded successfully! Type your command below and press Enter.",
-      false,
-      null,
-      false,
-    );
+    appendBotMessage("Data loaded successfully! Type your command below and press Enter.", false, null, false);
   } catch (err) {
     console.error("Startup Crash:", err);
-    appendBotMessage(
-      `Failed to load JSON data: ${err.message}`,
-      true,
-      null,
-      false,
-    );
+    appendBotMessage(`**Error:** ${err.message}`, true, null, false);
   }
 
   calcInput.addEventListener("input", function () {
     this.style.height = "auto";
     this.style.height = this.scrollHeight + "px";
-    if (this.scrollHeight > 200) {
-      this.style.overflowY = "auto";
-    } else {
-      this.style.overflowY = "hidden";
-    }
+    if (this.scrollHeight > 200) this.style.overflowY = "auto";
+    else this.style.overflowY = "hidden";
   });
 
   /**
-   * Scrapes DOM, executes operational pathways, evaluates commands, and renders responses.
-   * Hooks explicit intercepts (like `help`) circumventing logic errors prior to evaluation.
+   * Evaluates input commands, mounts execution components, and calls rendering chains.
    */
   function handleSend() {
     const input = calcInput.value.trim();
@@ -127,9 +92,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     try {
       const waves = WaveOrchestrator.simulateBattle(input);
-      if (waves.length > 0) {
-        appendCalculationEmbed(waves);
-      }
+      if (waves.length > 0) appendCalculationEmbed(waves);
     } catch (err) {
       appendBotMessage(`**Error:** ${err.message}`, true);
     }
@@ -142,32 +105,29 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  sendBtn.addEventListener("click", () => {
-    handleSend();
-  });
+  sendBtn.addEventListener("click", () => handleSend());
 
   /**
-   * Tracks newly attached elements securing constant focal plane positioning.
+   * Secures constant focal plane positioning upon appending newly structured block elements.
    */
   function scrollToBottom() {
     chatContainer.scrollTop = chatContainer.scrollHeight;
   }
 
   /**
-   * Formats execution timestamps.
-   * @returns {string} Explicit timestamp formatted as "HH:MM AM/PM".
+   * Retrieves localized timestamps binding block injections to the user timeline.
+   * @returns {string} Timestamp formatted as "HH:MM AM/PM".
    */
   function getTimeString() {
-    const now = new Date();
-    return now.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+    return new Date().toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
   }
 
   /**
-   * Dynamically mounts HTML text sequences masquerading as autonomous responses.
-   * @param {string} text - System strings formatting internal logic issues.
-   * @param {boolean} [isError=false] - Enables explicit styling parameters identifying crashes.
-   * @param {string|null} [time=null] - Pre-encoded timestamp overrides if populated via cache.
-   * @param {boolean} [save=true] - Appends tracking sequence within localized persistence.
+   * Injects structural HTML payloads dictating standard Bot responses or error dialogues.
+   * @param {string} text - System strings formatting internal logic responses.
+   * @param {boolean} [isError=false] - Enables explicit error styling parameters.
+   * @param {string|null} [time=null] - Overrides execution timestamps if pulled via cache.
+   * @param {boolean} [save=true] - Pushes the resultant payload to historical persistence logic.
    */
   function appendBotMessage(text, isError = false, time = null, save = true) {
     const msgTime = time || getTimeString();
@@ -176,15 +136,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (save) msgDiv.classList.add("animate-message");
 
     msgDiv.innerHTML = `
-            <img class="avatar" src="${BOT_AVATAR}" alt="Bot">
-            <div class="msg-content">
-                <div class="msg-header">
-                    <span class="username" style="${isError ? "color:#ed4245;" : ""}">Nerone</span><span class="bot-tag">BOT</span>
-                    <span class="timestamp">Today at ${msgTime}</span>
-                </div>
-                <div class="msg-text">${text}</div>
-            </div>
-        `;
+      <img class="avatar" src="${BOT_AVATAR}" alt="Bot">
+      <div class="msg-content">
+          <div class="msg-header">
+              <span class="username" style="${isError ? "color:#ed4245;" : ""}">Nerone</span><span class="bot-tag">BOT</span>
+              <span class="timestamp">Today at ${msgTime}</span>
+          </div>
+          <div class="msg-text">${text}</div>
+      </div>
+    `;
     chatContainer.appendChild(msgDiv);
     scrollToBottom();
 
@@ -195,10 +155,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   /**
-   * Dynamically mirrors typed directives mimicking asynchronous network chat.
-   * @param {string} text - The input.
-   * @param {string|null} [time=null] - Overridden historical timeline tags.
-   * @param {boolean} [save=true] - Tracks interaction within log boundaries.
+   * Injects structural HTML representing raw text queries executed by the user context.
+   * @param {string} text - Raw unparsed command input.
+   * @param {string|null} [time=null] - Historical timestamp block.
+   * @param {boolean} [save=true] - Toggles persistent cache pushing.
    */
   function appendUserMessage(text, time = null, save = true) {
     const msgTime = time || getTimeString();
@@ -207,33 +167,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (save) msgDiv.classList.add("animate-message");
 
     msgDiv.innerHTML = `
-            <img class="avatar" src="${USER_AVATAR}" alt="User">
-            <div class="msg-content">
-                <div class="msg-header">
-                    <span class="username">Master</span>
-                    <span class="timestamp">Today at ${msgTime}</span>
-                </div>
-                <div class="msg-text">${text}</div>
-            </div>
-            <button class="copy-btn">Copy</button>
-        `;
+      <img class="avatar" src="${USER_AVATAR}" alt="User">
+      <div class="msg-content">
+          <div class="msg-header">
+              <span class="username">Master</span>
+              <span class="timestamp">Today at ${msgTime}</span>
+          </div>
+          <div class="msg-text">${text}</div>
+      </div>
+      <button class="copy-btn">Copy</button>
+    `;
 
     const copyBtn = msgDiv.querySelector(".copy-btn");
     copyBtn.addEventListener("click", () => {
-      navigator.clipboard
-        .writeText(text)
-        .then(() => {
-          const originalText = copyBtn.innerText;
-          copyBtn.innerText = "Copied!";
-          copyBtn.style.color = "#57F287";
-          setTimeout(() => {
-            copyBtn.innerText = originalText;
-            copyBtn.style.color = "#dbdee1";
-          }, 1500);
-        })
-        .catch((err) => {
-          console.error("Failed to copy text: ", err);
-        });
+      navigator.clipboard.writeText(text).then(() => {
+        const originalText = copyBtn.innerText;
+        copyBtn.innerText = "Copied!";
+        copyBtn.style.color = "#57F287";
+        setTimeout(() => {
+          copyBtn.innerText = originalText;
+          copyBtn.style.color = "#dbdee1";
+        }, 1500);
+      }).catch((err) => console.error("Failed to copy text: ", err));
     });
 
     chatContainer.appendChild(msgDiv);
@@ -246,80 +201,48 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   /**
-   * Emulates Discord UI structural constraints rendering analytical metric arrays mapping FGO evaluations.
-   * Maps paginated components toggling distinct interactive views over persistent mathematical representations.
-   * @param {Object[]} waves - Abstract data constructs passed off by execution engines.
-   * @param {string|null} [time=null] - Encoded tracking limits.
-   * @param {boolean} [save=true] - Commits configuration blocks securing restoration logic mapping.
+   * Renders the interactive graphical Discord-style layout processing mathematical evaluations.
+   * @param {Object[]} waves - Result arrays generated dynamically by the Calculation engine.
+   * @param {string|null} [time=null] - Time boundary tag.
+   * @param {boolean} [save=true] - Flags logic for cache updates.
    */
   function appendCalculationEmbed(waves, time = null, save = true) {
     const msgTime = time || getTimeString();
     let currentWaveIndex = 0;
     const isMultiWave = waves.length > 1;
 
-    const capitalize = (s) =>
-      s && s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+    const capitalize = (s) => s && s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 
     const getClassIconUrl = (cls) => {
       const idMap = {
-        saber: 1,
-        archer: 2,
-        lancer: 3,
-        rider: 4,
-        caster: 5,
-        assassin: 6,
-        berserker: 7,
-        shielder: 8,
-        ruler: 9,
-        alterego: 10,
-        alteregokiara: 10,
-        avenger: 11,
-        mooncancer: 23,
-        mooncancerciel: 23,
-        foreigner: 25,
-        pretender: 28,
-        beast: 33,
-        beastdraco: 33,
-        beasteresh: 33,
-        beastolga: 33,
-        beast1: 34,
-        beast1lost: 34,
-        beast2: 34,
-        beast3r: 34,
-        beast3l: 34,
-        beast4: 34,
-        beast6: 34,
+        saber: 1, archer: 2, lancer: 3, rider: 4, caster: 5, assassin: 6, berserker: 7,
+        shielder: 8, ruler: 9, alterego: 10, alteregokiara: 10, avenger: 11, mooncancer: 23,
+        mooncancerciel: 23, foreigner: 25, pretender: 28, beast: 33, beastdraco: 33,
+        beasteresh: 33, beastolga: 33, beast1: 34, beast1lost: 34, beast2: 34, beast3r: 34,
+        beast3l: 34, beast4: 34, beast6: 34,
       };
       const id = idMap[cls?.toLowerCase()] || 97;
       return `https://static.atlasacademy.io/JP/ClassIcons/class3_${id}.png`;
     };
 
-    const getBuffIcon = (id) =>
-      `<img src="https://static.atlasacademy.io/JP/BuffIcons/bufficon_${id}.png" style="width: 16px; height: 16px; margin-right: 6px;" alt="">`;
-    const getSkillIcon = (id) =>
-      `<img src="https://static.atlasacademy.io/JP/SkillIcons/skill_${id}.png" style="width: 16px; height: 16px; margin-right: 6px;" alt="">`;
+    const getBuffIcon = (id) => `<img src="https://static.atlasacademy.io/JP/BuffIcons/bufficon_${id}.png" style="width: 16px; height: 16px; margin-right: 6px;" alt="">`;
+    const getSkillIcon = (id) => `<img src="https://static.atlasacademy.io/JP/SkillIcons/skill_${id}.png" style="width: 16px; height: 16px; margin-right: 6px;" alt="">`;
 
     const getColoredChain = (chain) => {
       if (!chain) return "";
       const tokens = chain.toUpperCase().match(/(NP|EX|E|B|A|Q|X)/g);
       if (!tokens) return chain.toUpperCase();
 
-      return tokens
-        .map((token) => {
-          if (token === "X")
-            return `<span style="font-weight: bold; vertical-align: middle; margin: 0 2px;">${token}</span>`;
-
-          let iconUrl = "";
-          if (token === "B") iconUrl = "./assets/buster.png";
-          else if (token === "A") iconUrl = "./assets/arts.png";
-          else if (token === "Q") iconUrl = "./assets/quick.png";
-          else if (token === "NP") iconUrl = "./assets/np.png";
-          else if (token === "E" || token === "EX")
-            iconUrl = "./assets/extra.png";
-
-          return `<img src="${iconUrl}" style="width: 18px; height: 18px; vertical-align: middle; margin-right: 2px;" alt="${token}">`;
-        })
-        .join("");
+      return tokens.map((token) => {
+        if (token === "X") return `<span style="font-weight: bold; vertical-align: middle; margin: 0 2px;">${token}</span>`;
+        let iconUrl = "";
+        if (token === "B") iconUrl = "./assets/buster.png";
+        else if (token === "A") iconUrl = "./assets/arts.png";
+        else if (token === "Q") iconUrl = "./assets/quick.png";
+        else if (token === "NP") iconUrl = "./assets/np.png";
+        else if (token === "E" || token === "EX") iconUrl = "./assets/extra.png";
+        return `<img src="${iconUrl}" style="width: 18px; height: 18px; vertical-align: middle; margin-right: 2px;" alt="${token}">`;
+      }).join("");
     };
 
     const formatBuffs = (snapshot) => {
@@ -333,22 +256,14 @@ document.addEventListener("DOMContentLoaded", async () => {
          </div>`;
 
       return (
-        buffLine(300, "ATK", `${d.attackMod}%`) +
-        buffLine(301, "DEF", `${d.defenceMod}%`) +
-        buffLine(313, "Arts Mod", `${d.artsMod}%`) +
-        buffLine(314, "Buster Mod", `${d.busterMod}%`) +
-        buffLine(312, "Quick Mod", `${d.quickMod}%`) +
-        buffLine(388, "Extra Mod", `${d.extraMod}%`) +
-        buffLine(310, "NP Dmg", `${d.npDamageMod}%`) +
-        buffLine(370, "NP Dmg Boost", `${d.npPowerBoost}%`) +
-        buffLine(302, "Power Mod", `${d.powerMod}%`) +
-        buffLine(324, "Crit Dmg", `${d.critDamageMod}%`) +
-        buffLine(359, "Special ATK Mod", `${d.specialAttackMod}%`) +
-        buffLine(334, "Special DEF Mod", `${d.specialDefenceMod}%`) +
-        buffLine(336, "Super Effective Mod", `${d.superEffectiveMod}%`) +
-        buffLine(303, "NP Gain", `${n.npGainMod}%`) +
-        buffLine(321, "Star Gen", `${s.stargen}%`) +
-        buffLine(302, "Flat Dmg/Dmg Cut", d.flatDamage)
+        buffLine(300, "ATK", `${d.attackMod}%`) + buffLine(301, "DEF", `${d.defenceMod}%`) +
+        buffLine(313, "Arts Mod", `${d.artsMod}%`) + buffLine(314, "Buster Mod", `${d.busterMod}%`) +
+        buffLine(312, "Quick Mod", `${d.quickMod}%`) + buffLine(388, "Extra Mod", `${d.extraMod}%`) +
+        buffLine(310, "NP Dmg", `${d.npDamageMod}%`) + buffLine(370, "NP Dmg Boost", `${d.npPowerBoost}%`) +
+        buffLine(302, "Power Mod", `${d.powerMod}%`) + buffLine(324, "Crit Dmg", `${d.critDamageMod}%`) +
+        buffLine(359, "Special ATK Mod", `${d.specialAttackMod}%`) + buffLine(334, "Special DEF Mod", `${d.specialDefenceMod}%`) +
+        buffLine(336, "Super Effective Mod", `${d.superEffectiveMod}%`) + buffLine(303, "NP Gain", `${n.npGainMod}%`) +
+        buffLine(321, "Star Gen", `${s.stargen}%`) + buffLine(302, "Flat Dmg/Dmg Cut", d.flatDamage)
       );
     };
 
@@ -356,26 +271,20 @@ document.addEventListener("DOMContentLoaded", async () => {
       const enemyClass = snapshot.enemy.enemyClass;
       const enemyAttr = snapshot.enemy.enemyAttribute;
       const enemyHp = snapshot.enemy.enemyHp;
-
       const isClassOmitted = enemyClass === "shielder";
       const isAttrOmitted = enemyAttr === "none";
       const isHpOmitted = enemyHp > 1000000000000;
 
-      const classIconUrl = isClassOmitted
-        ? "https://static.atlasacademy.io/JP/ClassIcons/class3_97.png"
-        : getClassIconUrl(enemyClass);
+      const classIconUrl = isClassOmitted ? "https://static.atlasacademy.io/JP/ClassIcons/class3_97.png" : getClassIconUrl(enemyClass);
       const attrText = isAttrOmitted ? "" : `[${capitalize(enemyAttr)}] `;
-      const hpText = isHpOmitted
-        ? ""
-        : `<span style="margin-left: 6px;"><strong>HP:</strong> ${Math.floor(enemyHp).toLocaleString()}</span>`;
+      const hpText = isHpOmitted ? "" : `<span style="margin-left: 6px;"><strong>HP:</strong> ${Math.floor(enemyHp).toLocaleString()}</span>`;
 
       return `
         <div style="display: flex; align-items: center; margin-bottom: 4px; font-size: 0.9rem;">
             <img src="${classIconUrl}" style="width: 18px; height: 18px; margin-right: 6px;" alt="Class">
             <strong>${attrText}Enemy</strong>
             ${hpText}
-        </div>
-      `;
+        </div>`;
     };
 
     const msgDiv = document.createElement("div");
@@ -383,65 +292,57 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (save) msgDiv.classList.add("animate-message");
 
     msgDiv.innerHTML = `
-            <img class="avatar" src="${BOT_AVATAR}" alt="Bot">
-            <div class="msg-content">
-                <div class="msg-header">
-                    <span class="username">Nerone</span><span class="bot-tag">BOT</span>
-                    <span class="timestamp">Today at ${msgTime}</span> </div>
-                <div class="embed">
-                    <div class="embed-header">
-                        <div>
-                            <div class="embed-title"></div>
-                            <div class="embed-subtitle" style="margin-top: 4px; font-size: 0.9rem;"></div>
-                        </div>
-                        <img class="embed-thumbnail" src="" alt="Servant">
-                    </div>
-                    
-                    <div class="summary-container" style="display: none;"></div>
-
-                    <div class="wave-container">
-                        <div class="detailed-view-container" style="display: none; margin-bottom: 12px; border-bottom: 1px solid #3f4147; padding-bottom: 10px;">
-                            <div class="field">
-                                <div class="field-name">Servant Stats</div>
-                                <div class="field-value e-meta" style="font-size: 0.85rem;"></div>
-                            </div>
-                            
-                            <div class="field" style="margin-top: 8px;">
-                                <div class="field-name">Advantages & Bonuses</div>
-                                <div class="field-value e-adv" style="font-size: 0.85rem;"></div>
-                            </div>
-
-                            <div class="field" style="margin-top: 8px;">
-                                <div class="field-name">Active Buffs</div>
-                                <div class="field-value e-buffs" style="column-count: 2; column-gap: 16px; font-size: 0.8rem; line-height: 1.4;"></div>
-                            </div>
-                        </div>
-
-                        <div class="field hp-field-container" style="margin-bottom: 8px;">
-                            <div class="field-value e-hp"></div>
-                        </div>
-
-                        <div class="field" style="margin-bottom: 10px;">
-                            <div class="field-name">Card Breakdown</div>
-                            <div class="field-value e-details" style="line-height: 1.4;"></div>
-                        </div>
-
-                        <div class="field">
-                            <div class="field-name">Total Damage:</div>
-                            <div class="field-value e-total-output" style="line-height: 1.4;"></div>
-                        </div>
-                    </div>
-
-                    <div class="btn-row">
-                        <button class="btn btn-first">⏮</button>
-                        <button class="btn btn-prev">◀</button>
-                        <button class="btn btn-toggle">Show Details</button>
-                        <button class="btn btn-next">▶</button>
-                        <button class="btn btn-last">⏭</button>
-                    </div>
-                </div>
-            </div>
-        `;
+      <img class="avatar" src="${BOT_AVATAR}" alt="Bot">
+      <div class="msg-content">
+          <div class="msg-header">
+              <span class="username">Nerone</span><span class="bot-tag">BOT</span>
+              <span class="timestamp">Today at ${msgTime}</span> </div>
+          <div class="embed">
+              <div class="embed-header">
+                  <div>
+                      <div class="embed-title"></div>
+                      <div class="embed-subtitle" style="margin-top: 4px; font-size: 0.9rem;"></div>
+                  </div>
+                  <img class="embed-thumbnail" src="" alt="Servant">
+              </div>
+              <div class="summary-container" style="display: none;"></div>
+              <div class="wave-container">
+                  <div class="detailed-view-container" style="display: none; margin-bottom: 12px; border-bottom: 1px solid #3f4147; padding-bottom: 10px;">
+                      <div class="field">
+                          <div class="field-name">Servant Stats</div>
+                          <div class="field-value e-meta" style="font-size: 0.85rem;"></div>
+                      </div>
+                      <div class="field" style="margin-top: 8px;">
+                          <div class="field-name">Advantages & Bonuses</div>
+                          <div class="field-value e-adv" style="font-size: 0.85rem;"></div>
+                      </div>
+                      <div class="field" style="margin-top: 8px;">
+                          <div class="field-name">Active Buffs</div>
+                          <div class="field-value e-buffs" style="column-count: 2; column-gap: 16px; font-size: 0.8rem; line-height: 1.4;"></div>
+                      </div>
+                  </div>
+                  <div class="field hp-field-container" style="margin-bottom: 8px;">
+                      <div class="field-value e-hp"></div>
+                  </div>
+                  <div class="field" style="margin-bottom: 10px;">
+                      <div class="field-name">Card Breakdown</div>
+                      <div class="field-value e-details" style="line-height: 1.4;"></div>
+                  </div>
+                  <div class="field">
+                      <div class="field-name">Total Damage:</div>
+                      <div class="field-value e-total-output" style="line-height: 1.4;"></div>
+                  </div>
+              </div>
+              <div class="btn-row">
+                  <button class="btn btn-first">⏮</button>
+                  <button class="btn btn-prev">◀</button>
+                  <button class="btn btn-toggle">Show Details</button>
+                  <button class="btn btn-next">▶</button>
+                  <button class="btn btn-last">⏭</button>
+              </div>
+          </div>
+      </div>
+    `;
 
     const titleEl = msgDiv.querySelector(".embed-title");
     const subEl = msgDiv.querySelector(".embed-subtitle");
@@ -467,79 +368,44 @@ document.addEventListener("DOMContentLoaded", async () => {
     let showingDetails = false;
 
     const formatMeta = (w) => {
-      return (
-        `<strong>Lv:</strong> ${w.level} | <strong>NP:</strong> ${w.npLevel} | <strong>NP Dmg:</strong> ${w.npDamageMod}%<br>` +
-        `<strong>Atk:</strong> ${Math.floor(w.baseAtk)} | <strong>Fou:</strong> ${w.fou} | <strong>Fou Paw:</strong> ${w.fouPaw} | <strong>CE:</strong> ${w.ce}`
-      );
+      return `<strong>Lv:</strong> ${w.level} | <strong>NP:</strong> ${w.npLevel} | <strong>NP Dmg:</strong> ${w.npDamageMod}%<br><strong>Atk:</strong> ${Math.floor(w.baseAtk)} | <strong>Fou:</strong> ${w.fou} | <strong>Fou Paw:</strong> ${w.fouPaw} | <strong>CE:</strong> ${w.ce}`;
     };
 
     const formatAdvantages = (w) => {
       const adv = w.snapshot.advantages;
       const props = w.data.chainProps;
-
       let bonuses = [];
-      if (props.firstCardBusterBonus > 0)
-        bonuses.push(
-          `<img src="./assets/buster.png" style="width: 18px; height: 18px; vertical-align: middle; margin-right: 4px;" alt="Buster Bonus" title="Buster First Card Bonus (Damage)">`,
-        );
-      if (props.firstCardArtsBonus > 0)
-        bonuses.push(
-          `<img src="./assets/arts.png" style="width: 18px; height: 18px; vertical-align: middle; margin-right: 4px;" alt="Arts Bonus" title="Arts First Card Bonus (NP Gain)">`,
-        );
-      if (props.firstCardQuickBonus > 0)
-        bonuses.push(
-          `<img src="./assets/quick.png" style="width: 18px; height: 18px; vertical-align: middle; margin-right: 4px;" alt="Quick Bonus" title="Quick First Card Bonus (Star Gen)">`,
-        );
-
+      if (props.firstCardBusterBonus > 0) bonuses.push(`<img src="./assets/buster.png" style="width: 18px; height: 18px; vertical-align: middle; margin-right: 4px;" alt="Buster Bonus" title="Buster First Card Bonus (Damage)">`);
+      if (props.firstCardArtsBonus > 0) bonuses.push(`<img src="./assets/arts.png" style="width: 18px; height: 18px; vertical-align: middle; margin-right: 4px;" alt="Arts Bonus" title="Arts First Card Bonus (NP Gain)">`);
+      if (props.firstCardQuickBonus > 0) bonuses.push(`<img src="./assets/quick.png" style="width: 18px; height: 18px; vertical-align: middle; margin-right: 4px;" alt="Quick Bonus" title="Quick First Card Bonus (Star Gen)">`);
       const bonusStr = bonuses.length > 0 ? bonuses.join("") : "None";
 
-      return (
-        `<strong>Class Adv:</strong> ${adv.classAdvantageMultiplier}x<br>` +
-        `<strong>Attribute Adv:</strong> ${adv.attributeMultiplier}x<br>` +
-        `<strong>First Card Bonus:</strong> ${bonusStr}`
-      );
+      return `<strong>Class Adv:</strong> ${adv.classAdvantageMultiplier}x<br><strong>Attribute Adv:</strong> ${adv.attributeMultiplier}x<br><strong>First Card Bonus:</strong> ${bonusStr}`;
     };
 
     const getCardTooltipHtml = (mods, flags) => {
       if (!mods && !flags) return "";
-
       const modMap = {
-        a: {id: 300, name: "ATK"},
-        d: {id: 301, name: "DEF"},
-        am: {id: 313, name: "Arts Mod"},
-        bm: {id: 314, name: "Buster Mod"},
-        qm: {id: 312, name: "Quick Mod"},
-        em: {id: 388, name: "Extra Mod"},
-        n: {id: 310, name: "NP Dmg"},
-        p: {id: 302, name: "Power Mod"},
-        cd: {id: 324, name: "Crit Dmg"},
-        sam: {id: 359, name: "Sp. ATK"},
-        sdm: {id: 334, name: "Sp. DEF"},
-        se: {id: 336, name: "SE Mod"},
-        ng: {id: 303, name: "NP Gain"},
-        sg: {id: 321, name: "Star Gen"},
-        fd: {id: 302, name: "Flat Dmg"},
+        a: {id: 300, name: "ATK"}, d: {id: 301, name: "DEF"}, am: {id: 313, name: "Arts Mod"},
+        bm: {id: 314, name: "Buster Mod"}, qm: {id: 312, name: "Quick Mod"}, em: {id: 388, name: "Extra Mod"},
+        n: {id: 310, name: "NP Dmg"}, p: {id: 302, name: "Power Mod"}, cd: {id: 324, name: "Crit Dmg"},
+        sam: {id: 359, name: "Sp. ATK"}, sdm: {id: 334, name: "Sp. DEF"}, se: {id: 336, name: "SE Mod"},
+        ng: {id: 303, name: "NP Gain"}, sg: {id: 321, name: "Star Gen"}, fd: {id: 302, name: "Flat Dmg"},
+        dr: {id: 300, name: "Damage Rate"}, ngr: {id: 303, name: "NP Rate"}, sgr: {id: 321, name: "Star Gen Rate"},
       };
 
       let buffStrings = [];
-
       if (mods) {
         for (const [key, value] of Object.entries(mods)) {
           if (value !== 0 && modMap[key]) {
             let unit = key === "fd" ? "" : "%";
-            buffStrings.push(
-              `<div class="tooltip-row">${getBuffIcon(modMap[key].id)} <strong>${modMap[key].name}:</strong>&nbsp;${value}${unit}</div>`,
-            );
+            buffStrings.push(`<div class="tooltip-row">${getBuffIcon(modMap[key].id)} <strong>${modMap[key].name}:</strong>&nbsp;${value}${unit}</div>`);
           }
         }
       }
-
       if (flags && flags.ok) {
-        buffStrings.push(
-          `<div class="tooltip-row"><span style="margin-right: 6px; font-weight: bold; color: #5865f2;">⚡</span> <strong>Force Overkill</strong></div>`,
-        );
+        buffStrings.push(`<div class="tooltip-row"><span style="margin-right: 6px; font-weight: bold; color: #5865f2;">⚡</span> <strong>Force Overkill</strong></div>`);
       }
-
       if (buffStrings.length === 0) return "";
 
       return `<div class="custom-tooltip">
@@ -569,22 +435,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         waves.forEach((w, i) => {
           const d = w.data.loopResult;
           const isHpOmitted = d.hpForMinRoll > 1000000000000;
+          const hpMinText = d.hpForMinRoll > 0 ? Math.floor(d.hpForMinRoll).toLocaleString() : "Dead";
+          const hpMaxText = d.hpForMaxRoll > 0 ? Math.floor(d.hpForMaxRoll).toLocaleString() : "Dead";
 
-          const hpMinText =
-            d.hpForMinRoll > 0
-              ? Math.floor(d.hpForMinRoll).toLocaleString()
-              : "Dead";
-          const hpMaxText =
-            d.hpForMaxRoll > 0
-              ? Math.floor(d.hpForMaxRoll).toLocaleString()
-              : "Dead";
-
-          const hpLeftStr = !isHpOmitted
-            ? `<div><strong>HP Left:</strong> (${hpMinText} - ${hpMaxText})</div>`
-            : "";
-          const successStr = !isHpOmitted
-            ? `<div><strong>Success Chance:</strong> ${d.hpForMinRoll <= 0 ? "100" : (d.successProbability * 100).toFixed(3)}%</div>`
-            : "";
+          const hpLeftStr = !isHpOmitted ? `<div><strong>HP Left:</strong> (${hpMinText} - ${hpMaxText})</div>` : "";
+          const successStr = !isHpOmitted ? `<div><strong>Success Chance:</strong> ${d.hpForMinRoll <= 0 ? "100" : (d.successProbability * 100).toFixed(3)}%</div>` : "";
           const enemyInfoHtml = buildEnemyHtml(w.snapshot);
 
           summaryHTML += `
@@ -593,12 +448,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <div class="field-value" style="line-height: 1.4;">
                         ${enemyInfoHtml}
                         <div style="display: flex; align-items: center; margin-top: 4px;">${getSkillIcon("00301")} <strong>${Math.floor(d.totalAvgDamage).toLocaleString()}</strong>&nbsp;(${Math.floor(d.totalMinDamage).toLocaleString()} - ${Math.floor(d.totalMaxDamage).toLocaleString()})</div>
-                        
                         <div class="summary-extra" style="display: ${showingDetails ? "block" : "none"}; margin-top: 4px; margin-bottom: 4px;">
                             <div style="display: flex; align-items: center;">${getSkillIcon("00601")} <strong>${(d.totalRefundMinRoll / 100).toFixed(2)}%</strong>&nbsp;<strong>-</strong> &nbsp;<strong>${(d.totalRefundMaxRoll / 100).toFixed(2)}%</strong></div>
                             <div style="display: flex; align-items: center; margin-top: 2px;">${getSkillIcon("00603")} <strong>[${d.totalStarGenMinRollLowChance}</strong>&nbsp;-&nbsp;<strong>${d.totalStarGenMinRollHighChance}]</strong>&nbsp;<strong>-</strong>&nbsp;<strong>[${d.totalStarGenMaxRollLowChance}</strong>&nbsp;-&nbsp;<strong>${d.totalStarGenMaxRollHighChance}]</strong></div>
                         </div>
-                        
                         ${hpLeftStr}
                         ${successStr}
                     </div>
@@ -620,48 +473,36 @@ document.addEventListener("DOMContentLoaded", async () => {
         metaEl.innerHTML = formatMeta(wave);
         advEl.innerHTML = formatAdvantages(wave);
         thumbEl.src = wave.servantLink;
-
         buffsEl.innerHTML = formatBuffs(wave.snapshot);
 
         detailsEl.innerHTML = "";
         data.perCardResults.forEach((card) => {
           const localMods = wave.buffs?.cardMods?.[card.position];
           const localFlags = wave.buffs?.cardFlags?.[card.position];
-
           const tooltipHtml = getCardTooltipHtml(localMods, localFlags);
           const hasTooltip = tooltipHtml !== "";
           const containerClass = hasTooltip ? "tooltip-container" : "";
           const cursorStyle = hasTooltip ? "cursor: help;" : "";
           const tabIndex = hasTooltip ? `tabindex="0"` : "";
 
-          let cardIconUrl =
-            card.cardToken === "A"
-              ? "./assets/arts.png"
-              : card.cardToken === "B"
-                ? "./assets/buster.png"
-                : card.cardToken === "Q"
-                  ? "./assets/quick.png"
-                  : card.cardToken === "NP"
-                    ? "./assets/np.png"
-                    : "./assets/extra.png";
+          let cardIconUrl = card.cardToken === "A" ? "./assets/arts.png"
+              : card.cardToken === "B" ? "./assets/buster.png"
+              : card.cardToken === "Q" ? "./assets/quick.png"
+              : card.cardToken === "NP" ? "./assets/np.png"
+              : "./assets/extra.png";
 
-          let critTag = card.isCrit
-            ? `<span style="font-weight: 800; margin-left: 4px;">[CRIT]</span>`
-            : "";
+          let critTag = card.isCrit ? `<span style="font-weight: 800; margin-left: 4px;">[CRIT]</span>` : "";
 
           detailsEl.innerHTML += `
             <div style="margin-bottom: 8px;">
                 <div style="display: flex; align-items: center; flex-wrap: wrap;">
                     <span style="display: inline-block; width: 24px;"><strong>[${card.position}]</strong></span> 
-                    
                     <span style="display: flex; align-items: center; margin-right: 6px; outline: none; ${cursorStyle}" class="${containerClass}" ${tabIndex}>
                         <img src="${cardIconUrl}" style="width: 16px; height: 16px;" alt="Card">
                         ${tooltipHtml} 
                     </span>
-                    
                     <span style="margin-left: 2px;"><strong>${Math.floor(card.avgDamage).toLocaleString()}</strong> (${Math.floor(card.minDamage).toLocaleString()} - ${Math.floor(card.maxDamage).toLocaleString()})</span>&nbsp;${critTag}
                 </div>
-                
                 <div class="summary-extra" style="display: ${showingDetails ? "block" : "none"}; margin-top: 4px;">
                     <div style="display: flex; align-items: center; margin-bottom: 2px; padding-left: 24px;">
                         ${getSkillIcon("00601")} <strong>${card.npGainMinRoll.toFixed(2)}%</strong>&nbsp;[${card.cardOverkillHitsMinRoll} OK] &nbsp;<strong>-</strong> &nbsp;<strong> ${card.npGainMaxRoll.toFixed(2)}%</strong>&nbsp;[${card.cardOverkillHitsMaxRoll} OK]
@@ -681,14 +522,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         const hpRemainingMax = data.hpForMaxRoll;
         const isHpOmitted = hpRemainingMin > 1000000000000;
 
-        const hpMinWaveText =
-          hpRemainingMin > 0
-            ? Math.floor(hpRemainingMin).toLocaleString()
-            : "Dead";
-        const hpMaxWaveText =
-          hpRemainingMax > 0
-            ? Math.floor(hpRemainingMax).toLocaleString()
-            : "Dead";
+        const hpMinWaveText = hpRemainingMin > 0 ? Math.floor(hpRemainingMin).toLocaleString() : "Dead";
+        const hpMaxWaveText = hpRemainingMax > 0 ? Math.floor(hpRemainingMax).toLocaleString() : "Dead";
 
         const dmgStr = `<div style="display: flex; align-items: center; margin-bottom: 4px;">${getSkillIcon("00301")} <strong>${Math.floor(data.totalAvgDamage).toLocaleString()}</strong>&nbsp;(${Math.floor(data.totalMinDamage).toLocaleString()} - ${Math.floor(data.totalMaxDamage).toLocaleString()})</div>`;
         const npStr = `<div style="display: flex; align-items: center; margin-bottom: 4px;">${getSkillIcon("00601")} <strong>${(data.totalRefundMinRoll / 100).toFixed(2)}%</strong>&nbsp;<strong> - </strong>&nbsp;<strong>${(data.totalRefundMaxRoll / 100).toFixed(2)}%</strong></div>`;
@@ -697,51 +532,34 @@ document.addEventListener("DOMContentLoaded", async () => {
         let totalOutputHtml = `${dmgStr}${npStr}${starStr}`;
 
         if (!isHpOmitted) {
-          const succChance =
-            hpRemainingMin <= 0
-              ? "100"
-              : (data.successProbability * 100).toFixed(3);
+          const succChance = hpRemainingMin <= 0 ? "100" : (data.successProbability * 100).toFixed(3);
           totalOutputHtml += `<div><strong>HP Left:</strong> (${hpMinWaveText} - ${hpMaxWaveText})</div>`;
           totalOutputHtml += `<div><strong>Success Chance:</strong> ${succChance}%</div>`;
         }
-
         totalOutputEl.innerHTML = totalOutputHtml;
       }
 
       if (isMultiWave) {
         const maxPages = waves.length;
-        btnFirst.style.display =
-          btnPrev.style.display =
-          btnNext.style.display =
-          btnLast.style.display =
-            "inline-block";
+        btnFirst.style.display = btnPrev.style.display = btnNext.style.display = btnLast.style.display = "inline-block";
         btnFirst.disabled = index === 0;
         btnPrev.disabled = index === 0;
         btnNext.disabled = index === maxPages;
         btnLast.disabled = index === maxPages;
       } else {
-        btnFirst.style.display =
-          btnPrev.style.display =
-          btnNext.style.display =
-          btnLast.style.display =
-            "none";
+        btnFirst.style.display = btnPrev.style.display = btnNext.style.display = btnLast.style.display = "none";
       }
     };
 
     btnToggle.addEventListener("click", () => {
       const prevButtonY = btnToggle.getBoundingClientRect().top;
-
       showingDetails = !showingDetails;
       btnToggle.innerText = showingDetails ? "Hide Details" : "Show Details";
 
-      if (detailContainer) {
-        detailContainer.style.display = showingDetails ? "block" : "none";
-      }
+      if (detailContainer) detailContainer.style.display = showingDetails ? "block" : "none";
 
       const summaryExtras = msgDiv.querySelectorAll(".summary-extra");
-      summaryExtras.forEach((el) => {
-        el.style.display = showingDetails ? "block" : "none";
-      });
+      summaryExtras.forEach((el) => { el.style.display = showingDetails ? "block" : "none"; });
 
       const newButtonY = btnToggle.getBoundingClientRect().top;
       const chatContainer = document.getElementById("chatContainer");
@@ -750,10 +568,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const changeWave = (newIndex, clickedBtn) => {
       const prevY = clickedBtn.getBoundingClientRect().top;
-
       currentWaveIndex = newIndex;
       renderWave(currentWaveIndex);
-
       const newY = clickedBtn.getBoundingClientRect().top;
       const chatContainer = document.getElementById("chatContainer");
       chatContainer.scrollTop += newY - prevY;
@@ -761,19 +577,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const maxPages = isMultiWave ? waves.length : 0;
 
-    btnFirst.addEventListener("click", () => {
-      changeWave(0, btnFirst);
-    });
-    btnPrev.addEventListener("click", () => {
-      if (currentWaveIndex > 0) changeWave(currentWaveIndex - 1, btnPrev);
-    });
-    btnNext.addEventListener("click", () => {
-      if (currentWaveIndex < maxPages)
-        changeWave(currentWaveIndex + 1, btnNext);
-    });
-    btnLast.addEventListener("click", () => {
-      changeWave(maxPages, btnLast);
-    });
+    btnFirst.addEventListener("click", () => changeWave(0, btnFirst));
+    btnPrev.addEventListener("click", () => { if (currentWaveIndex > 0) changeWave(currentWaveIndex - 1, btnPrev); });
+    btnNext.addEventListener("click", () => { if (currentWaveIndex < maxPages) changeWave(currentWaveIndex + 1, btnNext); });
+    btnLast.addEventListener("click", () => changeWave(maxPages, btnLast));
 
     renderWave(currentWaveIndex);
     chatContainer.appendChild(msgDiv);
