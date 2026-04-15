@@ -72083,6 +72083,20 @@
     "npGainNP": 33,
     "starGen": 156,
     "passive": "am2",
+    "aoeRates": {
+      "b": [
+        50.0,
+        50.0,
+        50.0
+      ],
+      "e": [
+        50.0,
+        50.0,
+        50.0,
+        50.0,
+        50.0
+      ]
+    },
     "link": "https://static.atlasacademy.io/JP/Servants/Status/2501500/status_servant_1.png"
   },
   {
@@ -81373,19 +81387,13 @@
       0
     ],
     "npColour": "",
-    "npDamageMod": [
-    ],
+    "npDamageMod": [],
     "hitsDistribution": {
-      "a": [
-      ],
-      "b": [
-      ],
-      "q": [
-      ],
-      "e": [
-      ],
-      "np": [
-      ]
+      "a": [],
+      "b": [],
+      "q": [],
+      "e": [],
+      "np": []
     },
     "npGainCard": 0,
     "npGainNP": 0,
