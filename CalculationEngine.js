@@ -153,7 +153,6 @@ function calculateSuccessProbability(avgCardDamages, enemyHp) {
   if (enemyHp >= Number.MAX_SAFE_INTEGER) return 0;
   const damageNeeded = enemyHp * 1000;
   let successCount = 0;
-
   for (let i = 0; i < MONTE_CARLO_ATTEMPTS; i++) {
     let totalSimulatedDamage = 0;
     for (let j = 0; j < avgCardDamages.length; j++) {
@@ -161,7 +160,6 @@ function calculateSuccessProbability(avgCardDamages, enemyHp) {
     }
     if (totalSimulatedDamage >= damageNeeded) successCount++;
   }
-
   return successCount / MONTE_CARLO_ATTEMPTS;
 }
 
@@ -298,7 +296,6 @@ export const CalculationEngine = {
     finalResult.provisionalDamageCounterMaxRoll =
       extraLoopResult.provisionalDamageCounterMaxRoll;
 
-    // Apply global flat NP and Star generation additions (e.g., fr10, fs20)
     let finalRefundAddRaw = Math.floor(
       globalBuffs.npGainMods.finalRefundAdd || 0,
     );
@@ -570,6 +567,14 @@ export const CalculationEngine = {
       classAtkMultiplier,
     };
 
+    // --- Added Rate Fallbacks ---
+    const damageRate =
+      buffs.mods["dr"] !== undefined ? buffs.getMod("dr") : -1.0;
+    const npGainRate =
+      buffs.mods["ngr"] !== undefined ? buffs.getMod("ngr") : -1.0;
+    const starGenRate =
+      buffs.mods["sgr"] !== undefined ? buffs.getMod("sgr") : -1.0;
+
     const snapshot = {
       damageMods,
       npGainMods,
@@ -582,6 +587,9 @@ export const CalculationEngine = {
       extraCardModOverride,
       rngOverride: buffs.getMod("rng"),
       overkillFlag: buffs.getFlag("ok"),
+      damageRate, // <--- Injected
+      npGainRate, // <--- Injected
+      starGenRate, // <--- Injected
       npCardType,
       npRateCard: servant.npRateCard,
       npRateNP: servant.npRateNP,
@@ -847,6 +855,7 @@ export const CalculationEngine = {
     firstCardBonus,
     isCrit,
     isNonDamagingNP,
+    resolvedSgr, // <--- Accepts resolved rate
   ) {
     if (isNonDamagingNP) return 0.0;
 
@@ -856,6 +865,8 @@ export const CalculationEngine = {
       currentCardToken === "np"
         ? g.npCardType.charAt(0).toLowerCase()
         : currentCardToken;
+
+    const finalStarGenRateMod = resolvedSgr / 100.0; // <--- Multiplier
 
     if (currentCardToken === "e") {
       let extraCardMod = applyCap(
@@ -871,11 +882,12 @@ export const CalculationEngine = {
         false,
       );
       return (
-        servant.starRate / 10.0 +
-        firstCardBonus +
-        EXTRA_CARD_STAR_VALUE * (1.0 + extraCardMod / 100.0) +
-        g.starGenMods.enemyServerRate +
-        starGenMod
+        (servant.starRate / 10.0 +
+          firstCardBonus +
+          EXTRA_CARD_STAR_VALUE * (1.0 + extraCardMod / 100.0) +
+          g.starGenMods.enemyServerRate +
+          starGenMod) *
+        finalStarGenRateMod
       );
     }
 
@@ -929,12 +941,13 @@ export const CalculationEngine = {
     let critMod = isCrit ? STAR_GEN_CRIT_MODIFIER : 0.0;
 
     return (
-      servant.starRate / 10.0 +
-      firstCardBonus +
-      cardStarValue * Math.max(1.0 + cardMod / 100.0, 0) +
-      g.starGenMods.enemyServerRate +
-      starGenMod +
-      critMod
+      (servant.starRate / 10.0 +
+        firstCardBonus +
+        cardStarValue * Math.max(1.0 + cardMod / 100.0, 0) +
+        g.starGenMods.enemyServerRate +
+        starGenMod +
+        critMod) *
+      finalStarGenRateMod
     );
   },
 
@@ -960,6 +973,30 @@ export const CalculationEngine = {
       (buffs.getFlag("crit") || localFlags["crit"]) &&
       currentCardToken !== "np";
 
+    // --- Resolve Hierarchy ---
+    let effectiveCardType = currentCardToken === "np" ? "np" : currentCardToken;
+    let servantRates = servant.aoeRates[effectiveCardType] || [
+      100.0, 100.0, 100.0,
+    ];
+    let resolvedDr =
+      localMods["dr"] !== undefined
+        ? localMods["dr"]
+        : g.damageRate !== -1.0
+          ? g.damageRate
+          : servantRates[0];
+    let resolvedNgr =
+      localMods["ngr"] !== undefined
+        ? localMods["ngr"]
+        : g.npGainRate !== -1.0
+          ? g.npGainRate
+          : servantRates[1];
+    let resolvedSgr =
+      localMods["sgr"] !== undefined
+        ? localMods["sgr"]
+        : g.starGenRate !== -1.0
+          ? g.starGenRate
+          : servantRates[2];
+
     let hitMultiplier = Math.max(
       1,
       Math.floor(buffs.getMod("ff") + (localMods["ff"] || 0.0)),
@@ -979,6 +1016,7 @@ export const CalculationEngine = {
       currentCardToken,
       actualPosition,
       chainProps.firstCardBusterBonus,
+      resolvedDr,
     );
     let totalFlatDamageForThisCard =
       g.damageMods.flatDamage + (localMods["fd"] || 0.0);
@@ -1029,6 +1067,7 @@ export const CalculationEngine = {
       actualPosition,
       chainProps.firstCardArtsBonus,
       isCrit,
+      resolvedNgr,
     );
     let base_gain = Math.floor(hitGain_no_floor);
     let overkill_gain = Math.floor(base_gain * OVERKILL_MODIFIER);
@@ -1044,6 +1083,7 @@ export const CalculationEngine = {
       firstCardBonus,
       isCrit,
       isNonDamagingNP,
+      resolvedSgr,
     );
 
     let totalCardDamageMin = Math.max(
@@ -1063,9 +1103,8 @@ export const CalculationEngine = {
       cardStarGenMaxHighChance = 0;
     let cardOverkillHitsMinRoll = 0,
       cardOverkillHitsMaxRoll = 0;
-
-    let accumulatedDamageMin = 0;
-    let accumulatedDamageMax = 0;
+    let accumulatedDamageMin = 0,
+      accumulatedDamageMax = 0;
 
     for (let h = 0; h < numHits; h++) {
       let rawPercentage = numHits > 0 ? hitDistribution[h] : 0.0;
@@ -1490,14 +1529,37 @@ export const CalculationEngine = {
     let rngAvg = g.rngOverride !== 0.0 ? g.rngOverride : RNG_AVG_MULTIPLIER;
     let rngMax = g.rngOverride !== 0.0 ? g.rngOverride : RNG_MAX_MULTIPLIER;
 
+    let localMods = buffs.cardMods[EXTRA_ATTACK_POSITION] || {};
+
+    // --- Resolve Hierarchy ---
+    let servantRates = servant.aoeRates["e"] || [100.0, 100.0, 100.0];
+    let resolvedDr =
+      localMods["dr"] !== undefined
+        ? localMods["dr"]
+        : g.damageRate !== -1.0
+          ? g.damageRate
+          : servantRates[0];
+    let resolvedNgr =
+      localMods["ngr"] !== undefined
+        ? localMods["ngr"]
+        : g.npGainRate !== -1.0
+          ? g.npGainRate
+          : servantRates[1];
+    let resolvedSgr =
+      localMods["sgr"] !== undefined
+        ? localMods["sgr"]
+        : g.starGenRate !== -1.0
+          ? g.starGenRate
+          : servantRates[2];
+
     let extraDamage = this.calculateExtraAttackDamage(
       servant,
       buffs,
       g,
       chainProps.isBraveChainMatch,
       chainProps.firstCardBusterBonus,
+      resolvedDr,
     );
-    let localMods = buffs.cardMods[EXTRA_ATTACK_POSITION] || {};
 
     let hitMultiplier = Math.max(
       1,
@@ -1521,6 +1583,7 @@ export const CalculationEngine = {
       localMods,
       false,
       chainProps.firstCardArtsBonus,
+      resolvedNgr,
     );
     let base_gain = Math.floor(hitGain_no_floor);
     let overkill_gain = Math.floor(base_gain * OVERKILL_MODIFIER);
@@ -1534,6 +1597,7 @@ export const CalculationEngine = {
       chainProps.firstCardQuickBonus,
       false,
       false,
+      resolvedSgr,
     );
 
     let totalCardDamageMin = Math.max(
@@ -1553,9 +1617,8 @@ export const CalculationEngine = {
       extraStarGenMaxHighChance = 0;
     let cardOverkillHitsMinRoll = 0,
       cardOverkillHitsMaxRoll = 0;
-
-    let accumulatedDamageMin = 0;
-    let accumulatedDamageMax = 0;
+    let accumulatedDamageMin = 0,
+      accumulatedDamageMax = 0;
 
     for (let h = 0; h < numHits; h++) {
       let rawPercentage = numHits > 0 ? hitDistribution[h] : 0.0;
@@ -1710,6 +1773,7 @@ export const CalculationEngine = {
     currentCardToken,
     actualPosition,
     firstCardBonus,
+    resolvedDr, // <--- Accepts resolved rate
   ) {
     let localMods = buffs.cardMods[actualPosition] || {};
     let localFlags = buffs.cardFlags[actualPosition] || {};
@@ -1773,10 +1837,10 @@ export const CalculationEngine = {
       currentFouPawAttack,
       isCrit,
       currentCardToken,
+      resolvedDr,
     );
   },
-
-  /**
+ /**
    * Distributes FGO hard caps cleanly prior to establishing final math parameters.
    * @param {Object} d - Core damage modification tree.
    * @param {Object} localMods - Positional sub-modifiers specific to the current strike.
@@ -1801,6 +1865,7 @@ export const CalculationEngine = {
     currentFouPawAttack,
     isCrit,
     cardType,
+    resolvedDr, // <--- Accepts resolved rate
   ) {
     let totalAttackMod = applyCap(
       d.attackMod + (localMods["a"] || 0.0),
@@ -1947,6 +2012,8 @@ export const CalculationEngine = {
     let totalSuperEffectiveMod =
       cardType === "np" && seMod > 1.0 ? seMod / 100.0 : 1.0;
 
+    let finalDamageRateMod = resolvedDr / 100.0;
+
     return (
       baseDamage *
       totalAttackDefenseStack *
@@ -1956,11 +2023,12 @@ export const CalculationEngine = {
       totalSAM *
       totalSuperEffectiveMod *
       g.advantages.attributeMultiplier *
-      g.advantages.classAdvantageMultiplier
+      g.advantages.classAdvantageMultiplier *
+      finalDamageRateMod
     );
   },
 
-  /**
+ /**
    * Applies Brave Chain logic to scale the distinct parameters generated in the fourth (Extra) position.
    * @param {Object} servant - The active servant object.
    * @param {Object} buffs - Current active buffs.
@@ -1975,6 +2043,7 @@ export const CalculationEngine = {
     g,
     isBraveChainMatch,
     firstCardBonus,
+    resolvedDr, // <--- Accepts resolved rate
   ) {
     let classAtkMultiplier = g.advantages.classAtkMultiplier;
     let localMods = buffs.cardMods[EXTRA_ATTACK_POSITION] || {};
@@ -2065,6 +2134,8 @@ export const CalculationEngine = {
       MIN_POWER_STACK_VALUE,
     );
 
+    let finalDamageRateMod = resolvedDr / 100.0;
+
     return (
       baseDamage *
       totalAttackDefenseStack *
@@ -2073,11 +2144,12 @@ export const CalculationEngine = {
       totalSpecialDefenseMod *
       totalSAM *
       g.advantages.attributeMultiplier *
-      g.advantages.classAdvantageMultiplier
+      g.advantages.classAdvantageMultiplier *
+      finalDamageRateMod
     );
   },
 
-  /**
+/**
    * Distributes mathematical logic necessary to find exact decimal values for internal NP regeneration per standard strike.
    * @param {Object} buffs - Current active buffs.
    * @param {Object} g - Evaluated global parameters.
@@ -2096,6 +2168,7 @@ export const CalculationEngine = {
     actualPosition,
     artsFirstCardBonus,
     isCrit,
+    resolvedNgr, // <--- Accepts resolved rate
   ) {
     let nocap = buffs.getFlag("nocap");
     let cardBaseNpValue = 0.0;
@@ -2193,16 +2266,19 @@ export const CalculationEngine = {
     let finalArtsFirstBonus =
       currentCardToken === "np" ? 0.0 : artsFirstCardBonus;
 
+    let finalNpGainRateMod = resolvedNgr / 100.0;
+
     return (
       baseNpRate *
       (finalArtsFirstBonus + cardNpValue * (1.0 + cardModVal)) *
       enemyModVal *
       (1.0 + npGainModVal) *
-      critModVal
+      critModVal *
+      finalNpGainRateMod
     );
   },
 
-  /**
+/**
    * Translates distinct mechanics inherent solely to Extra card actions into gauge charge values.
    * @param {Object} buffs - Current active buffs.
    * @param {Object} g - Evaluated global parameters.
@@ -2211,7 +2287,15 @@ export const CalculationEngine = {
    * @param {number} artsFirstCardBonus - Chained multiplier additive.
    * @returns {number} Non-floored numerical value corresponding to returned base charge.
    */
-  calculateExtraHitRefund(buffs, g, localMods, isCrit, artsFirstCardBonus) {
+  
+  calculateExtraHitRefund(
+    buffs,
+    g,
+    localMods,
+    isCrit,
+    artsFirstCardBonus,
+    resolvedNgr,
+  ) {
     let nocap = buffs.getFlag("nocap");
     let cardNpValue = EXTRA_CARD_NP_VALUE;
 
@@ -2237,12 +2321,15 @@ export const CalculationEngine = {
     let enemyModVal = g.npGainMods.enemyServerMod;
     let critModVal = isCrit ? 2.0 : 1.0;
 
+    let finalNpGainRateMod = resolvedNgr / 100.0;
+
     return (
       g.npRateCard *
       (artsFirstCardBonus + cardNpValue * (1.0 + cardModVal)) *
       enemyModVal *
       (1.0 + npGainModVal) *
-      critModVal
+      critModVal *
+      finalNpGainRateMod
     );
   },
 };

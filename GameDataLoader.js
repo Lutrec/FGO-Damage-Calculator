@@ -161,6 +161,7 @@ export const GameDataLoader = {
       npHits: data.hitsDistribution?.np?.length || 0,
       npCardTypes,
       ocMechanicType: data.ocMechanicType || "standard",
+      aoeRates: data.aoeRates || {},
       hitDistributions: {
         a: convertHitDist(data.hitsDistribution?.a),
         b: convertHitDist(data.hitsDistribution?.b),
