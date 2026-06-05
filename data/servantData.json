@@ -57613,11 +57613,11 @@
     ],
     "npColour": "buster",
     "npDamageMod": [
-      300,
       400,
-      450,
-      475,
-      500
+      500,
+      550,
+      575,
+      600
     ],
     "hitsDistribution": {
       "a": [
