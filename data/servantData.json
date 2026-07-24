@@ -30513,11 +30513,11 @@
     ],
     "npColour": "arts",
     "npDamageMod": [
-      450,
       600,
-      675,
-      712.5,
-      750
+      750,
+      825,
+      862.5,
+      900
     ],
     "hitsDistribution": {
       "a": [
@@ -34168,11 +34168,11 @@
     ],
     "npColour": "arts",
     "npDamageMod": [
-      450,
       600,
-      675,
-      712.5,
-      750
+      750,
+      825,
+      862.5,
+      900
     ],
     "hitsDistribution": {
       "a": [
@@ -50256,11 +50256,11 @@
     ],
     "npColour": "arts",
     "npDamageMod": [
-      450,
       600,
-      675,
-      712.5,
-      750
+      750,
+      825,
+      862.5,
+      900
     ],
     "hitsDistribution": {
       "a": [
@@ -60030,11 +60030,11 @@
     ],
     "npColour": "arts",
     "npDamageMod": [
-      450,
       600,
-      675,
-      712.5,
-      750
+      750,
+      825,
+      862.5,
+      900
     ],
     "hitsDistribution": {
       "a": [
