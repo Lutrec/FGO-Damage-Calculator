@@ -9,5 +9,11 @@
   "grand": "f1000",
   "sgrand": "lv100 f3000",
   "hgrand": "lv120 f3000",
+  "gsuper": "lv100 f3000",
+  "ghyper": "lv120 f3000",
+  "supergrand": "lv100 f3000",
+  "hypergrand": "lv120 f3000",
+  "superg": "lv100 f3000",
+  "hyperg": "lv120 f3000",
   "aoe": "dr50 ngr50 sgr50"
 }
