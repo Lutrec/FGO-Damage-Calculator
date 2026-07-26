@@ -6,5 +6,8 @@
   "cs": "ap20 bp20 qp20 bcd20 acd40 qcd60 cd10 n10 em50 sg50",
   "super": "lv100 f2000",
   "hyper": "lv120 f2000",
-  "grand": "ce1000"
+  "grand": "f1000",
+  "sgrand": "lv100 f3000",
+  "hgrand": "lv120 f3000",
+  "aoe": "dr50 ngr50 sgr50"
 }
