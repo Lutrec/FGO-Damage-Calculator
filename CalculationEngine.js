@@ -279,7 +279,7 @@ export const CalculationEngine = {
       superEffectiveMod: buffs.getMod("se"), npPowerBoost: buffs.getMod("npp"), artsPower: buffs.getMod("ap"),
       busterPower: buffs.getMod("bp"), quickPower: buffs.getMod("qp"), extraPower: buffs.getMod("ep"),
       artsCritDamageMod: buffs.getMod("acd"), busterCritDamageMod: buffs.getMod("bcd"), quickCritDamageMod: buffs.getMod("qcd"),
-      flatDamage: buffs.getMod("fd"), npDamageOverride: buffs.getMod("np"), npLevelValue: buffs.getMod("npo"),
+      flatDamage: buffs.getMod("fd"), npDamageOverride: buffs.getMod("npo"), npLevelValue: buffs.getMod("np"),
     };
 
     const npGainMods = {
@@ -343,7 +343,7 @@ export const CalculationEngine = {
     if (buffs.getFlag("mighty") && !isMightyChain) isMightyChain = true;
 
     const isFirstBuster = effectiveChain.startsWith("b") || (effectiveChain.startsWith("np") && npCardType === "buster");
-    const firstCardBusterBonus = isMightyChain || buffs.getFlag("bf") || (isFirstBuster && !buffs.getFlag("nobf")) ? FIRST_CARD_BUSTER_BONUS : 0.0;
+    const firstCardBusterBonus = isMightyChain || isBusterChain || buffs.getFlag("bf") || (isFirstBuster && !buffs.getFlag("nobf")) ? FIRST_CARD_BUSTER_BONUS : 0.0;
 
     const isFirstArts = effectiveChain.startsWith("a") || (effectiveChain.startsWith("np") && npCardType === "arts");
     const firstCardArtsBonus = isMightyChain || buffs.getFlag("af") || isFirstArts ? FIRST_CARD_ARTS_BONUS : 0.0;
