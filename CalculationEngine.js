@@ -236,9 +236,9 @@ export const CalculationEngine = {
 
     const esmOverride = buffs.getMod("esm");
     const esrOverride = buffs.getMod("esr");
-    const enemyMods = GameDataLoader.ENEMY_CLASS_MODS[buffs.enemyClass] || { attackRate: 1.0, starRate: 1.0 };
-    const enemyServerMod = enemyMods.attackRate || 1.0;
-    const enemyServerRate = enemyMods.starRate || 1.0;
+    const enemyMods = GameDataLoader.ENEMY_CLASS_MODS[buffs.enemyClass] || { enemyServerMod: 1.0, enemyServerRate: 1.0 };
+    const enemyServerMod = enemyMods.enemyServerMod !== undefined ? enemyMods.enemyServerMod : 1.0;
+    const enemyServerRate = enemyMods.enemyServerRate !== undefined ? enemyMods.enemyServerRate : 1.0;
 
     const finalEnemyServerMod = esmOverride !== 0.0 ? esmOverride : enemyServerMod;
     const finalEnemyServerRate = esrOverride !== 0.0 ? esrOverride * 100 : (enemyServerRate - 1.0) * 100.0;
